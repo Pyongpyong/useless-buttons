@@ -8,8 +8,9 @@
 Each `<useless-button>` is a real, focusable, form-participating
 `<button>` whose background is a live Rust/wasm simulation — a boid
 swarm, falling sand, Conway's Game of Life, a cursor-chasing Mandelbrot
-zoom, a bouncing-pixel collision chamber, or a first-person maze crawl —
-rendered straight into the button's own canvas. Ships as a
+zoom, a bouncing-pixel collision chamber, a first-person maze crawl, a
+sky of rotating Van Gogh swirls, a Voronoi diagram over drifting
+points, or a jump to lightspeed — rendered straight into the button's own canvas. Ships as a
 dependency-free Web Component, so it works in React, Vue, Svelte, or a
 plain `.html` file identically.
 
@@ -46,6 +47,9 @@ npm install useless-buttons
 <useless-button variant="fractal">Fractal zoom</useless-button>
 <useless-button variant="bounce">Pixel chaos</useless-button>
 <useless-button variant="dungeon">Dungeon crawl</useless-button>
+<useless-button variant="starry">Starry night</useless-button>
+<useless-button variant="voronoi">Voronoi cells</useless-button>
+<useless-button variant="hyperdrive">Punch it</useless-button>
 ```
 
 Importing the package auto-registers `<useless-button>`. It behaves like
@@ -75,15 +79,53 @@ defineUselessButton("my-button"); // registers an additional alias tag
 | `life` | Conway's Game of Life, 2 device px per cell, toroidal, advancing at a fixed ~36 generations/sec (3x faster while hovering) regardless of render rate | Whenever cells die off, new clustered seeds sprout elsewhere on the board — population stays lively instead of dwindling to almost nothing. Hover: gentle continuous seeding under the cursor too, not just on click. Click: a bigger seed splash around the cursor. |
 | `fractal` | A Mandelbrot explorer, computed at half resolution and upscaled 2×2, `f64` coordinates, adaptive iteration count | Zoom only ever increases — even fully idle it keeps deepening on its own; hovering steers the center towards the cursor and roughly doubles the rate. Continuous boundary-detail probing nudges the view away from flat/boring (solid interior or empty space) patches, and relocates to a new hand-picked coordinate if one is crossed anyway — the fractal never dead-ends on a blank screen. Click: jump straight to the next coordinate. |
 | `bounce` | Dozens of pixels bouncing around a fully elastic collision chamber, changing both direction and a genuinely random full-spectrum color on every wall or pixel-pixel hit | Purely ambient — no pointer interaction. The background is never cleared or faded: only the particles' current positions get painted, so every pass any pixel has ever taken through the canvas stays visible as a permanent trail. |
-| `dungeon` | A first-person raycaster (DDA, Wolfenstein/DOOM-style) through a 47×35 procedurally-carved maze — a gray stone ceiling, a dark floor, and walls colored per straight run, so a corridor keeps one color along its length and switches at every corner (with alternating faces darkened a touch for extra corner definition) | Purely ambient — no pointer interaction. Walks center-to-center on autopilot forever, turning in place at each cell before moving on, picking a new open direction at every junction and reversing only at dead ends. The maze is deliberately far larger than what's visible so it roams instead of pacing the same few corridors. Unlike `bounce`, this one repaints the whole frame every render — it's a camera view, not a trail. |
+| `dungeon` | A first-person raycaster (DDA, Wolfenstein/DOOM-style) through a 47×35 procedurally-carved maze. Walls are brick, in running bond, and colored by which way they run as seen from above — north-south walls warm/red, east-west ones cool/blue — with each straight run taking its own hue from that family, so a corridor holds one color along its length and every corner is a visible break. Floor and ceiling are cast per pixel into square tiles, the ceiling's twice the size of the floor's, both fading out with distance | Purely ambient — no pointer interaction. Walks center-to-center on autopilot forever, turning in place at each cell before moving on, picking a new open direction at every junction and reversing only at dead ends. The maze is deliberately far larger than what's visible so it roams instead of pacing the same few corridors. |
+| `starry` | *Starry Night*, more or less: at least eight multi-armed spirals, each drawn as a chain of tapering strokes from a hot white core out to cool blue tips. They stay put and breathe — turning at their own rate, half of them the other way round, pulsing between roughly 0.6x and 1.4x their size — rather than drifting, since a swirl wandering off its spot reads as one star vanishing and another appearing. The sky between them streams: short brush strokes ride a slowly-churning flow field, each one belonging to a particular star and reborn around it, so the current comes out of the stars. Placement is best-candidate sampling at each swirl's *peak* size, because uniform random clumps and a clump of spirals reads as one blob | Hover: swirls near the cursor spin up to ~3x, ramped by distance so there's no visible boundary. Click: reverses every swirl at once. |
+| `voronoi` | A Voronoi diagram over drifting sites, each cell filled with its own random color. Every pixel is simply colored by its nearest site, so the cell boundaries fall out of the coloring rather than being built as geometry — no edge list to keep consistent while the sites move. Sampled at half resolution, since the cost is sites × pixels | Hover: the cursor joins in as one more site, carving its own cell out of whatever it's standing on. Click: re-rolls every cell's color. |
+| `hyperdrive` | The jump to lightspeed, on a loop. Several hundred stars in a 3D field under perspective projection, with the camera falling *away* from them, so growing depth shrinks `x / z` and each star rushes inward and is swallowed by the vanishing point. Each is drawn as the streak between where it was and where it is, and the smear grows with the drive as well as with its speed — so at the punch the lines stretch until they fill the frame, rather than merely moving faster. Runs as a cycle (near-still field, spool-up, punch, white flash), because standing at full speed forever loses the acceleration the shot is built on | Hover: skips the idle stretch and spools up early. Click: punches straight to the jump. |
+| `tunnel` | A neon dimension tunnel with glowing rings, twisting rails, rainbow depth shading and a dark vanishing point. Rendered at half resolution with bounded work per pixel. | Hover: steer the vanishing point. Hold: accelerate. Click: speed burst and a new color dimension. |
+| `blackhole` | A fast elliptical camera orbit dives toward an accretion disk, rolls around it and pulls away. Click to collapse and restore the horizon. | Hold to increase animation speed. |
+| `chrome` | Liquid metal reflects moving cyan and magenta light. Hover to bend reflections; click for a metallic ripple. | Hold to increase animation speed. |
+| `plasma` | Branching electric filaments converge near the cursor. Click to intensify the discharge. | Hold to increase animation speed. |
+| `stained-glass` | Shared junctions drift inside a fixed frame, reshaping the colored triangular panes with no whole-sheet rotation or zoom. Click to scatter the shards and watch them reassemble. | Hold to increase animation speed. |
+| `aurora` | Layered green and violet curtains ripple across the sky. Hover to steer; click for an expanding storm. | Hold to increase animation speed. |
+| `ripple` | Caustic light dances across dark water. Click to launch ripples from the cursor. | Hold to increase animation speed. |
+| `hologram` | Rotating wireframe slices float above a scan grid. Click to expand the projection. | Hold to increase animation speed. |
+| `supernova` | A boiling star pulses and rotates on a synthetic 144 BPM beat, with sharp zoom kicks and a fiery corona. Click for an extra shockwave. | Hold to increase animation speed. |
+| `matrix` | Continuous green bitmap code rain with bright leading glyphs and fading tails. | Hover: brighten nearby columns. Hold or click: accelerate the rain. |
 
 An unrecognized or misspelled `variant` (`"SWRAM "`, `"boidz"`, ...) never
 throws or renders a broken button — it silently falls back to `swarm`.
 
+### Cinematic effects
+
+Background and text effects can be combined independently:
+
+```html
+<useless-button variant="blackhole" text-fx="blackhole" style="--ub-accent: #f2faff">Beyond the horizon</useless-button>
+<useless-button variant="chrome" text-fx="chrome">Liquid metal</useless-button>
+<useless-button variant="plasma" text-fx="hologram">High voltage</useless-button>
+```
+
+The eight material backgrounds target 60 fps, with faster shading animation and
+camera zoom/roll on the shaded effects and moving junctions inside a fixed frame
+for stained glass. Supernova uses a synthetic 144 BPM visual beat
+(no audio input or playback). Procedural shading uses adaptive
+pixel blocks; stained glass uses 48 persistent triangular shards. Click reactions
+last about two seconds and can be retriggered. Text effects use the existing
+shared scheduler and accessible-label handling, and stop with reduced motion.
+Use light label colors on these predominantly dark backgrounds. Each demo card pairs a background with its own text effect and displays the
+`text-fx` value below the button. The menu can override all effects or restore
+the original pairings.
+
+The cinematic material effects use dedicated palettes (warm accretion light,
+chrome reflections, violet plasma, and cyan holograms) and dark backgrounds.
+They do not use `--ub-paper` as their background color.
+
 ### Colors
 
-Every simulation paints its moving/living/procedural elements with
-genuinely random full-spectrum colors (HSV hue drawn from `Rng`, not a
+The original simulations paint their moving/living/procedural elements with
+random full-spectrum colors (HSV hue drawn from `Rng`, not a
 gradient between two fixed theme colors) — each boid, sand-pile color
 band, live cell, fractal iteration band, bouncing pixel, and dungeon wall
 gets its own hue. `--ub-paper` is still the background and `--ub-ink` is
@@ -98,7 +140,7 @@ label's own text color instead (see below).
 |---|---|---|---|
 | `variant` | `.variant` | `"swarm"` | Case/whitespace-tolerant. Changing it at runtime tears down and recreates the simulation. |
 | `seed` | `.seed` | `1` | Unsigned 32-bit PRNG seed. Same seed + same size ⇒ identical animation. Changing it recreates the simulation. |
-| `fps` | `.fps` | the variant's `preferred_fps` (currently 60 for all six) | Caps how often the simulation is stepped, independent of the shared render loop's own rate. |
+| `fps` | `.fps` | the variant's `preferred_fps` (currently 60 for all nine) | Caps how often the simulation is stepped, independent of the shared render loop's own rate. |
 | `disabled` | `.disabled` | absent | Reflects onto the real, inner `<button disabled>` — native disabled semantics apply (no clicks, no focus, no form submission). |
 | `text-fx` | `.textFx` | `"spin"` | Decorative label animation — see below. Always on by default; pass `text-fx="none"` to opt out. |
 
@@ -112,8 +154,8 @@ canvas) — **on by default** (this is `useless-buttons`; a static label
 was never really the point). Runs on the same shared render loop as
 everything else, and — like the canvas — is disabled entirely under
 `prefers-reduced-motion: reduce`, freezing on a neutral, fully-readable
-pose rather than partway through a transform. All three are tuned to be
-genuinely excessive — the button no longer clips its own label
+pose rather than partway through a transform. All of them are tuned to
+be genuinely excessive — the button no longer clips its own label
 (`overflow: visible`; the canvas still clips itself to the rounded
 corners), so `skew` and `explode` are free to actually leave the
 button's box rather than stay politely contained inside it.
@@ -123,23 +165,43 @@ button's box rather than stay politely contained inside it.
 | `"spin"` (default) | Rotates continuously around its own center, scaling up and down in sync. Both the angular *speed* and the scale trace the same sine wave — ranging from a slow, small, readable crawl up to several rotations per second at a visibly larger size — fast enough to blur into an unreadable smear at its peak, then ease back down. How long each cycle takes to reach peak speed, and how large the peak scale is, are both re-rolled every cycle, so consecutive spins vary instead of repeating an identical ramp forever. |
 | `"skew"` | A large, fast `skew()` wobble (up to ~80°) built from layered sine waves at non-integer-ratio frequencies, riding along with a proportional offset so the label actually travels off-center — the ends visibly swing outside the button's own box at the extremes, not just shear in place inside it. |
 | `"explode"` | Splits the label into individual characters that burst outward (fast ease-out), hold scattered for a beat — flung well past the button's edges, tumbling and briefly scaled up — then snap back together (fast ease-in) and rest assembled before the next burst. Each character's direction, distance, rotation and peak scale are re-rolled every cycle, so the same word doesn't burst the same way twice in a row. The original text is fully hidden for as long as `text-fx="explode"` is set (see Accessibility below) — what's on screen is only ever the animated characters, never both at once. |
+| `"snake"` | Splits the label into characters that slither along a travelling sine wave. Each character samples the same curve at its own phase offset, so the crest moves along the word rather than every letter bobbing in unison, and each is rotated to the curve's local tangent — that tangent is what makes the row read as one body following a path instead of letters bouncing independently. A slower sweep carries the whole body left and right on top of that, so the snake travels well outside the button's own box on every side rather than wriggling on the spot in the middle of it. |
+| `"blackhole"` | Letters orbit, rotate and pulse continuously; clicking stretches them toward the center. |
+| `"chrome"` | Metallic letters melt and stretch under moving highlights. |
+| `"plasma"` | Electric jitter and cyan-violet arcs outline each letter. |
+| `"stained-glass"` | Colored letters scatter, rotate, and reassemble on click. |
+| `"aurora"` | Light trails rise from letters floating along a luminous curtain. |
+| `"ripple"` | Letters refract and leave watery double images. |
+| `"hologram"` | Translucent letter slices shift with cyan-magenta color separation. |
+| `"supernova"` | Letters pulse and rotate at 144 BPM, with an extra contraction and burst on click. |
+| `"zoom"` | A travelling magnification wave expands and rotates letters in sequence. |
+| `"ricochet"` | Letters bounce, squash at impact and rotate with offset rhythms. |
+| `"corridor"` | Letters move through perspective depth and turn like corridor panels. |
+| `"streak"` | Letters stretch horizontally, trailing six cyan light echoes. |
+| `"matrix"` | Readable letters cascade vertically with bright green heads and fading afterimages. |
+| `"tunnel"` | Eighteen colored depth echoes behind the real label, with a gently changing perspective tilt. Works independently of the background variant and respects reduced motion. |
+| `"slot"` | Each character becomes a slot-machine reel spinning about its X axis. Reels decelerate (ease-out) through a whole number of turns, so they always come to rest face-on rather than stopped edge-on and invisible, and they stop left to right, hold the result for a beat, then spin up again. Turn count is re-rolled per character per cycle so the reels never fall into lockstep, and faces darken as they turn away, the way a physical drum would. |
 | `"none"` | Opt out: static label, no animation. |
 
 ```html
 <useless-button variant="swarm">Spinning</useless-button>          <!-- text-fx defaults to "spin" -->
 <useless-button variant="sand" text-fx="skew">Wobbling</useless-button>
 <useless-button variant="life" text-fx="explode">Boom!</useless-button>
+<useless-button variant="starry" text-fx="snake">Slithering</useless-button>
+<useless-button variant="voronoi" text-fx="slot">Jackpot</useless-button>
+<useless-button variant="tunnel" text-fx="tunnel" style="--ub-accent: #f2faff">Enter the portal</useless-button>
 <useless-button variant="fractal" text-fx="none">Perfectly still</useless-button>
 ```
 
-`text-fx="explode"` hides the real slotted text (`visibility: hidden` on
-its wrapper — not `display: none`, which would collapse the label's
-layout box and break centering) for as long as that mode is active — the
-animated characters
-are `aria-hidden`, since they're a visual stand-in, not a second copy of
+The per-character modes (`explode`, `snake`, `slot`, and the material/code effects
+`blackhole`, `chrome`, `plasma`, `stained-glass`, `aurora`, `ripple`, `hologram`,
+`supernova`, `matrix`, `zoom`, `ricochet`, `corridor`, and `streak`) hide the real
+slotted text (`visibility: hidden` on its wrapper — not `display: none`, which would collapse the label's
+layout box and break centering) for as long as one of them is active —
+the animated characters are `aria-hidden`, since they're a visual stand-in, not a second copy of
 the label — so the button's accessible name is pinned explicitly via
 `aria-label` on the inner `<button>` instead, taken from the same text.
-Switching away from `"explode"` removes that override and restores the
+Switching to a non-per-character mode removes that override and restores the
 slot, so the real text drives the accessible name again as normal.
 
 ## CSS custom properties
@@ -216,7 +278,7 @@ declare global {
           variant?: string;
           seed?: number;
           fps?: number;
-          "text-fx"?: "none" | "spin" | "skew" | "explode";
+          "text-fx"?: "none" | "spin" | "skew" | "explode" | "snake" | "slot" | "tunnel" | "blackhole" | "chrome" | "plasma" | "stained-glass" | "aurora" | "ripple" | "hologram" | "supernova" | "matrix" | "zoom" | "ricochet" | "corridor" | "streak";
         },
         HTMLElement
       >;
@@ -299,7 +361,9 @@ Other useful scripts:
 ```sh
 npm test       # cargo test — the simulation logic, verified natively
 npm run preview  # cargo run --release --example preview
-               # renders preview/{swarm,sand,life,fractal,bounce,dungeon}.gif
+               # renders preview/{swarm,sand,life,fractal,bounce,
+               #          dungeon,starry,
+               #          voronoi,hyperdrive}.gif
                # so you can eyeball a variant without a browser
 ```
 
@@ -397,6 +461,7 @@ scripts/inline-wasm.mjs     base64-inlines pkg/*.wasm into a TS constant
 examples/preview.rs         renders preview/*.gif from the native lib
 demo/index.html             manual browser smoke test + theme controls
 ```
+
 
 ## License
 

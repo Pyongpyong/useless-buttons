@@ -3,9 +3,15 @@
 pub mod bounce;
 pub mod dungeon;
 pub mod fractal;
+pub mod hyperdrive;
 pub mod life;
+pub mod matrix;
 pub mod sand;
+pub mod starry;
 pub mod swarm;
+pub mod tunnel;
+pub mod spectacle;
+pub mod voronoi;
 
 use crate::paint::{Frame, Theme};
 use crate::rng::Rng;
@@ -54,6 +60,19 @@ pub enum Variant {
     Fractal,
     Bounce,
     Dungeon,
+    Starry,
+    Voronoi,
+    Hyperdrive,
+    Tunnel,
+    Matrix,
+    Blackhole,
+    Chrome,
+    Plasma,
+    StainedGlass,
+    Aurora,
+    Ripple,
+    Hologram,
+    Supernova,
 }
 
 impl Variant {
@@ -68,6 +87,19 @@ impl Variant {
             "fractal" | "mandelbrot" => Variant::Fractal,
             "bounce" | "pixel-bounce" | "pixelbounce" => Variant::Bounce,
             "dungeon" | "dungeon-explorer" | "maze" | "doom" => Variant::Dungeon,
+            "starry" | "starry-night" | "vangogh" | "van-gogh" => Variant::Starry,
+            "voronoi" | "voronoi-diagram" | "cells" => Variant::Voronoi,
+            "hyperdrive" | "lightspeed" | "warp" | "hyperspace" => Variant::Hyperdrive,
+            "matrix" | "digital-rain" => Variant::Matrix,
+            "tunnel" | "dimension-tunnel" => Variant::Tunnel,
+            "blackhole" => Variant::Blackhole,
+            "chrome" => Variant::Chrome,
+            "plasma" => Variant::Plasma,
+            "stained-glass" => Variant::StainedGlass,
+            "aurora" => Variant::Aurora,
+            "ripple" => Variant::Ripple,
+            "hologram" => Variant::Hologram,
+            "supernova" => Variant::Supernova,
             "swarm" | "boids" | "" => Variant::Swarm,
             _ => Variant::Swarm,
         }
@@ -81,6 +113,19 @@ impl Variant {
             Variant::Fractal => "fractal",
             Variant::Bounce => "bounce",
             Variant::Dungeon => "dungeon",
+            Variant::Starry => "starry",
+            Variant::Voronoi => "voronoi",
+            Variant::Hyperdrive => "hyperdrive",
+            Variant::Tunnel => "tunnel",
+            Variant::Matrix => "matrix",
+            Variant::Blackhole => "blackhole",
+            Variant::Chrome => "chrome",
+            Variant::Plasma => "plasma",
+            Variant::StainedGlass => "stained-glass",
+            Variant::Aurora => "aurora",
+            Variant::Ripple => "ripple",
+            Variant::Hologram => "hologram",
+            Variant::Supernova => "supernova",
         }
     }
 
@@ -93,6 +138,19 @@ impl Variant {
             Variant::Fractal => Box::new(fractal::Fractal::new(w, h, rng)),
             Variant::Bounce => Box::new(bounce::Bounce::new(w, h, rng)),
             Variant::Dungeon => Box::new(dungeon::Dungeon::new(w, h, rng)),
+            Variant::Starry => Box::new(starry::Starry::new(w, h, rng)),
+            Variant::Voronoi => Box::new(voronoi::Voronoi::new(w, h, rng)),
+            Variant::Hyperdrive => Box::new(hyperdrive::Hyperdrive::new(w, h, rng)),
+            Variant::Tunnel => Box::new(tunnel::Tunnel::new(w, h, rng)),
+            Variant::Matrix => Box::new(matrix::Matrix::new(w, h, rng)),
+            Variant::Blackhole => Box::new(spectacle::Spectacle::new(spectacle::Effect::Blackhole, w, h, rng)),
+            Variant::Chrome => Box::new(spectacle::Spectacle::new(spectacle::Effect::Chrome, w, h, rng)),
+            Variant::Plasma => Box::new(spectacle::Spectacle::new(spectacle::Effect::Plasma, w, h, rng)),
+            Variant::StainedGlass => Box::new(spectacle::Spectacle::new(spectacle::Effect::Glass, w, h, rng)),
+            Variant::Aurora => Box::new(spectacle::Spectacle::new(spectacle::Effect::Aurora, w, h, rng)),
+            Variant::Ripple => Box::new(spectacle::Spectacle::new(spectacle::Effect::Ripple, w, h, rng)),
+            Variant::Hologram => Box::new(spectacle::Spectacle::new(spectacle::Effect::Hologram, w, h, rng)),
+            Variant::Supernova => Box::new(spectacle::Spectacle::new(spectacle::Effect::Supernova, w, h, rng)),
         }
     }
 }
@@ -117,6 +175,33 @@ mod tests {
         assert_eq!(Variant::parse("Dungeon"), Variant::Dungeon);
         assert_eq!(Variant::parse("maze"), Variant::Dungeon);
         assert_eq!(Variant::parse("doom"), Variant::Dungeon);
+        assert_eq!(Variant::parse("Starry"), Variant::Starry);
+        assert_eq!(Variant::parse("starry-night"), Variant::Starry);
+        assert_eq!(Variant::parse("Voronoi"), Variant::Voronoi);
+        assert_eq!(Variant::parse("cells"), Variant::Voronoi);
+        assert_eq!(Variant::parse("Hyperdrive"), Variant::Hyperdrive);
+        assert_eq!(Variant::parse("lightspeed"), Variant::Hyperdrive);
+        assert_eq!(Variant::parse("warp"), Variant::Hyperdrive);
+        assert_eq!(Variant::parse(" Tunnel "), Variant::Tunnel);
+        assert_eq!(Variant::parse("dimension-tunnel"), Variant::Tunnel);
+        assert_eq!(Variant::parse(" MATRIX "), Variant::Matrix);
+        assert_eq!(Variant::parse("digital-rain"), Variant::Matrix);
+        assert_eq!(Variant::parse(" BLACKHOLE "), Variant::Blackhole);
+        assert_eq!(Variant::Blackhole.as_str(), "blackhole");
+        assert_eq!(Variant::parse(" CHROME "), Variant::Chrome);
+        assert_eq!(Variant::Chrome.as_str(), "chrome");
+        assert_eq!(Variant::parse(" PLASMA "), Variant::Plasma);
+        assert_eq!(Variant::Plasma.as_str(), "plasma");
+        assert_eq!(Variant::parse(" STAINED-GLASS "), Variant::StainedGlass);
+        assert_eq!(Variant::StainedGlass.as_str(), "stained-glass");
+        assert_eq!(Variant::parse(" AURORA "), Variant::Aurora);
+        assert_eq!(Variant::Aurora.as_str(), "aurora");
+        assert_eq!(Variant::parse(" RIPPLE "), Variant::Ripple);
+        assert_eq!(Variant::Ripple.as_str(), "ripple");
+        assert_eq!(Variant::parse(" HOLOGRAM "), Variant::Hologram);
+        assert_eq!(Variant::Hologram.as_str(), "hologram");
+        assert_eq!(Variant::parse(" SUPERNOVA "), Variant::Supernova);
+        assert_eq!(Variant::Supernova.as_str(), "supernova");
     }
 
     #[test]

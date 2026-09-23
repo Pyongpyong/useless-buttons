@@ -29,8 +29,23 @@ fn main() {
         Variant::Fractal,
         Variant::Bounce,
         Variant::Dungeon,
+        Variant::Starry,
+        Variant::Voronoi,
+        Variant::Hyperdrive,
+        Variant::Tunnel,
+        Variant::Matrix,
+        Variant::Blackhole,
+        Variant::Chrome,
+        Variant::Plasma,
+        Variant::StainedGlass,
+        Variant::Aurora,
+        Variant::Ripple,
+        Variant::Hologram,
+        Variant::Supernova,
     ] {
-        render_variant(variant, &out_dir);
+        if std::env::args().nth(1).map_or(true, |name| name == variant.as_str()) {
+            render_variant(variant, &out_dir);
+        }
     }
 
     println!("Wrote previews to {}", out_dir.display());
