@@ -4,6 +4,11 @@
   "description": "A collection of needlessly elaborate buttons — Web Components buttons with a Rust/wasm simulation (boids, falling sand, Conway's Life, Mandelbrot, bouncing pixels, a first-person maze crawl) painted on their canvas background.",
   "type": "module",
   "license": "MIT",
+  "homepage": "https://useless-buttons-zeta.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pyongpyong/useless-buttons.git"
+  },
   "keywords": [
     "web-components",
     "custom-elements",
