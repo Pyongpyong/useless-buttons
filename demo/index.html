@@ -33,6 +33,9 @@
   }
   h1 { margin: 0; font-size: 1.4rem; }
   p.sub { margin: -1rem 0 0; opacity: .7; text-align: center; max-width: 40ch; }
+  .project-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.5rem; }
+  .project-links a { color: var(--fg); text-underline-offset: .2em; }
+  .project-links a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 
   .toolbar {
     display: flex;
@@ -109,6 +112,10 @@
 <body>
   <h1>useless-buttons — a collection of needlessly elaborate buttons</h1>
   <p class="sub">Hover and click around. Every button's background is a live Rust/wasm simulation.</p>
+  <nav class="project-links" aria-label="Project links">
+    <a href="https://www.npmjs.com/package/useless-buttons">npm</a>
+    <a href="https://github.com/Pyongpyong/useless-buttons">GitHub</a>
+  </nav>
 
   <div class="toolbar">
     <button class="tool" id="theme-toggle" type="button">🌗 Toggle light / dark</button>

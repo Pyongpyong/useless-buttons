@@ -1,5 +1,7 @@
 # useless-buttons
 
+[npm](https://www.npmjs.com/package/useless-buttons) · [Live demo](https://useless-buttons-zeta.vercel.app) · [GitHub](https://github.com/Pyongpyong/useless-buttons)
+
 > A collection of needlessly elaborate buttons — buttons that do far more
 > computation than any button should.
 
