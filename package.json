@@ -1,0 +1,54 @@
+{
+  "name": "useless-buttons",
+  "version": "0.1.0",
+  "description": "A collection of needlessly elaborate buttons — Web Components buttons with a Rust/wasm simulation (boids, falling sand, Conway's Life, Mandelbrot, bouncing pixels, a first-person maze crawl) painted on their canvas background.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "web-components",
+    "custom-elements",
+    "wasm",
+    "webassembly",
+    "rust",
+    "canvas",
+    "button",
+    "boids",
+    "cellular-automaton",
+    "mandelbrot"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": [
+    "./dist/index.js"
+  ],
+  "scripts": {
+    "build:wasm": "wasm-pack build --target web --out-dir pkg --release",
+    "build:glue": "node scripts/inline-wasm.mjs",
+    "build:js": "esbuild src-ts/index.ts --bundle --format=esm --outfile=dist/index.js --minify",
+    "build:types": "tsc --emitDeclarationOnly --declaration --outDir dist",
+    "build": "npm run build:wasm && npm run build:glue && npm run build:js && npm run build:types",
+    "build:demo": "npm run build && node scripts/build-demo.mjs",
+    "test": "cargo test",
+    "preview": "cargo run --release --example preview"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

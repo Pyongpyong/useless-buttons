@@ -346,41 +346,37 @@ These commands deploy local build output.
 
 ### Automatic Vercel previews for pull requests
 
-`.github/workflows/vercel-preview.yml` runs tests and builds the Rust/WASM
-demo whenever a PR is opened, updated, or reopened. For branches in this
-repository, it deploys a Vercel Preview and adds its URL to the GitHub Actions
-run summary (open the PR's Checks tab, then the workflow run).
+Use Vercel's native GitHub integration. GitHub Actions and deployment secrets
+are not required: Vercel checks out the source, installs Rust/wasm-pack, runs
+the tests, builds the demo, and publishes `site/`.
 
 One-time setup:
 
-1. Build and link the generated site to a Vercel project:
+1. Commit and push `vercel.json`, `scripts/`, and the rest of the source to GitHub.
+2. In Vercel, choose **Add New → Project**, connect GitHub, and import the
+   repository. For an existing project, connect it under **Settings → Git**.
+3. Keep **Root Directory** at the repository root (`.`), choose **Other** as
+   the framework preset, and use Node.js 22.x. Remove any old dashboard build
+   overrides; the checked-in `vercel.json` supplies these settings:
 
-   ```sh
-   npm run build:demo
-   npx vercel login
-   npx vercel link --cwd site
-   ```
-
-2. In GitHub, open **Settings → Secrets and variables → Actions** and add
-   these repository secrets:
-
-   | Secret | Value |
+   | Setting | Value |
    | --- | --- |
-   | `VERCEL_TOKEN` | An access token from Vercel Account Settings → Tokens, with access to the project's team |
-   | `VERCEL_ORG_ID` | `orgId` from `site/.vercel/project.json` |
-   | `VERCEL_PROJECT_ID` | `projectId` from `site/.vercel/project.json` |
+   | Install Command | `npm ci` |
+   | Build Command | `bash scripts/vercel-build.sh` |
+   | Output Directory | `site` |
 
-3. Keep the Vercel project's Root Directory at its default (`.`). This workflow
-   runs Vercel inside `site/` already. Use a CLI-linked project without Vercel's
-   automatic Git deployment connection to avoid duplicate source builds.
-4. Commit and push the workflow and build scripts, then open a PR.
+4. Deploy the project, then push a feature branch and open a PR. Vercel adds
+   the Preview deployment status and URL to the PR and rebuilds after new pushes.
 
-Fork and Dependabot PRs run tests and builds but skip deployment because
-deployment secrets are unavailable. The workflow creates Preview deployments
-only; production remains available through the manual command above.
+The first build includes installation of Rust and wasm-pack, which can take
+several minutes. The local `site/` directory stays gitignored; Vercel generates
+it from source, including the WASM bundle, on every build.
 
-See [Vercel's GitHub Actions example](https://github.com/vercel/examples/tree/main/ci-cd/github-actions)
-for the `pull → build → deploy --prebuilt` flow.
+By default, Vercel also builds branch pushes before a PR is opened. Pushes to
+the configured Production Branch (usually `main`), including PR merges, deploy
+to production. External fork contributions may require approval in Vercel.
+
+See [Vercel's GitHub integration documentation](https://vercel.com/docs/git/vercel-for-github).
 
 ### Why `cargo test` and not wasm-bindgen-test
 

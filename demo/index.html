@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>useless-buttons demo</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfaf7;
+    --fg: #1a1a1a;
+    --card: #ffffff;
+    --border: #e4e0d6;
+  }
+  :root[data-theme="dark"] {
+    --bg: #101010;
+    --fg: #f2f0e9;
+    --card: #1a1a1a;
+    --border: #333;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2.5rem 1.5rem 5rem;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    transition: background .2s, color .2s;
+  }
+  h1 { margin: 0; font-size: 1.4rem; }
+  p.sub { margin: -1rem 0 0; opacity: .7; text-align: center; max-width: 40ch; }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem 1.5rem;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 1.25rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .toolbar label { display: flex; flex-direction: column; gap: .25rem; font-size: .8rem; opacity: .8; }
+  .toolbar button.tool {
+    font: inherit;
+    padding: .4rem .8rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--fg);
+    cursor: pointer;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    width: min(920px, 100%);
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .75rem;
+    padding: 1.5rem 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+  }
+  .card h2 { margin: 0; font-size: .95rem; font-weight: 600; }
+  .card p { margin: 0; font-size: .8rem; opacity: .7; text-align: center; }
+
+  useless-button {
+    --ub-paper: #f5f3ec;
+    --ub-ink: #1a1a1a;
+    --ub-accent: #e0503d;
+    font-weight: 600;
+    font-size: .95rem;
+  }
+  :root[data-theme="dark"] useless-button {
+    --ub-paper: #1c1c1c;
+    --ub-ink: #f2f0e9;
+    --ub-accent: #ff7a5c;
+  }
+
+  .status {
+    font-size: .8rem;
+    opacity: .7;
+    min-height: 1.2em;
+  }
+
+  #click-log {
+    width: min(920px, 100%);
+    font-size: .8rem;
+    opacity: .8;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: .75rem 1rem;
+    max-height: 6rem;
+    overflow-y: auto;
+  }
+</style>
+</head>
+<body>
+  <h1>useless-buttons — a collection of needlessly elaborate buttons</h1>
+  <p class="sub">Hover and click around. Every button's background is a live Rust/wasm simulation.</p>
+
+  <div class="toolbar">
+    <button class="tool" id="theme-toggle" type="button">🌗 Toggle light / dark</button>
+
+    <label>
+      Accent color
+      <input type="color" id="accent-picker" value="#e0503d" />
+    </label>
+
+    <label>
+      Paper color
+      <input type="color" id="paper-picker" value="#f5f3ec" />
+    </label>
+
+    <label>
+      Global fps cap
+      <select id="fps-select">
+        <option value="">Default (preferred_fps)</option>
+        <option value="30">30</option>
+        <option value="12">12</option>
+        <option value="6">6 (deliberately slow)</option>
+      </select>
+    </label>
+
+    <button class="tool" id="disable-toggle" type="button">Toggle all disabled</button>
+
+    <label>
+      Global text-fx
+      <select id="textfx-select">
+        <option value="">Keep each button's own setting</option>
+        <option value="none">none</option>
+        <option value="spin">spin</option>
+        <option value="skew">skew</option>
+        <option value="explode">explode</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>swarm (boids)</h2>
+      <p>The cursor is a predator. Hold to scare the flock, click for a panic burst.</p>
+      <useless-button variant="swarm" seed="1">Flee the swarm</useless-button>
+    </div>
+    <div class="card">
+      <h2>sand (falling sand)</h2>
+      <p>Hold to pour sand, click for a one-shot dump.</p>
+      <useless-button variant="sand" seed="2">Pile up sand</useless-button>
+    </div>
+    <div class="card">
+      <h2>life (Conway)</h2>
+      <p>Click to seed randomly around the cursor. Revives itself if it ever stalls.</p>
+      <useless-button variant="life" seed="3">Game of life</useless-button>
+    </div>
+    <div class="card">
+      <h2>fractal (Mandelbrot)</h2>
+      <p>Hover to zoom in on the cursor's coordinates, click to jump elsewhere.</p>
+      <useless-button variant="fractal" seed="4">Fractal zoom</useless-button>
+    </div>
+    <div class="card">
+      <h2>bounce (pixel bounce)</h2>
+      <p>Dozens of colored pixels ricochet off the walls and each other, changing color on every hit. Trails are painted permanently — they never fade.</p>
+      <useless-button variant="bounce" seed="9">Pixel chaos</useless-button>
+    </div>
+    <div class="card">
+      <h2>dungeon (maze explorer)</h2>
+      <p>A raycast first-person view (DOOM-style) that wanders a procedurally-carved maze forever, on autopilot.</p>
+      <useless-button variant="dungeon" seed="10">Dungeon crawl</useless-button>
+    </div>
+  </div>
+
+  <div class="card" style="width min(920px,100%)">
+    <h2>Typo'd variant (fallback check)</h2>
+    <p><code>variant="SWRAM "</code> — should fall back to swarm.</p>
+    <useless-button variant="SWRAM " seed="5">Typo fallback</useless-button>
+  </div>
+
+  <h1 style="font-size:1.1rem;">text-fx</h1>
+  <div class="grid">
+    <div class="card">
+      <h2>text-fx="spin"</h2>
+      <p>Rotates around its center, angular speed tracing a sine wave.</p>
+      <useless-button variant="swarm" seed="6" text-fx="spin">Spinning</useless-button>
+    </div>
+    <div class="card">
+      <h2>text-fx="skew"</h2>
+      <p>An unruly (deliberately non-periodic-looking) skew wobble.</p>
+      <useless-button variant="sand" seed="7" text-fx="skew">Wobbling</useless-button>
+    </div>
+    <div class="card">
+      <h2>text-fx="explode"</h2>
+      <p>Letters scatter like pixels, then snap back together.</p>
+      <useless-button variant="life" seed="8" text-fx="explode">Boom text</useless-button>
+    </div>
+  </div>
+
+  <div class="status" id="status">Initializing...</div>
+  <div id="click-log"></div>
+
+  <script type="module">
+    import { defineUselessButton } from "../dist/index.js";
+    // Already auto-defined by importing index.js, but this exercises the
+    // explicit API too and demonstrates registering an alias tag.
+    defineUselessButton("useless-button");
+    defineUselessButton("ub-alias");
+
+    const statusEl = document.getElementById("status");
+    const logEl = document.getElementById("click-log");
+
+    function log(msg) {
+      const line = document.createElement("div");
+      line.textContent = `${new Date().toLocaleTimeString()} — ${msg}`;
+      logEl.prepend(line);
+    }
+
+    window.addEventListener("error", (e) => {
+      statusEl.textContent = `Console error: ${e.message}`;
+      statusEl.style.color = "crimson";
+    });
+
+    document.querySelectorAll("useless-button").forEach((el) => {
+      el.addEventListener("click", () => log(`clicked: variant=${el.getAttribute("variant")}`));
+      el.addEventListener("focus", () => log(`focused: variant=${el.getAttribute("variant")}`));
+    });
+
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+      const root = document.documentElement;
+      root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+    });
+
+    const accentPicker = document.getElementById("accent-picker");
+    const paperPicker = document.getElementById("paper-picker");
+    accentPicker.addEventListener("input", () => {
+      document.querySelectorAll("useless-button").forEach((el) => {
+        el.style.setProperty("--ub-accent", accentPicker.value);
+      });
+    });
+    paperPicker.addEventListener("input", () => {
+      document.querySelectorAll("useless-button").forEach((el) => {
+        el.style.setProperty("--ub-paper", paperPicker.value);
+      });
+    });
+
+    document.getElementById("fps-select").addEventListener("change", (e) => {
+      const value = e.target.value;
+      document.querySelectorAll("useless-button").forEach((el) => {
+        if (value) el.setAttribute("fps", value);
+        else el.removeAttribute("fps");
+      });
+    });
+
+    let allDisabled = false;
+    document.getElementById("disable-toggle").addEventListener("click", () => {
+      allDisabled = !allDisabled;
+      document.querySelectorAll("useless-button").forEach((el) => {
+        el.toggleAttribute("disabled", allDisabled);
+      });
+    });
+
+    document.getElementById("textfx-select").addEventListener("change", (e) => {
+      const value = e.target.value;
+      if (!value) return; // "keep each button's own setting" — leave alone
+      document.querySelectorAll("useless-button").forEach((el) => {
+        el.setAttribute("text-fx", value);
+      });
+    });
+
+    statusEl.textContent = "Loaded — no console errors means everything's working.";
+  </script>
+</body>
+</html>
