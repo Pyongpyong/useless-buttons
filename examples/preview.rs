@@ -31,6 +31,7 @@ fn main() {
         Variant::Dungeon,
         Variant::Starry,
         Variant::Voronoi,
+        Variant::Hyperdrive,
     ] {
         render_variant(variant, &out_dir);
     }

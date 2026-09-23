@@ -1,13 +1,15 @@
 //! `starry` — Van Gogh's *Starry Night*, as a pile of rotating spirals.
 //!
 //! Each "star" is a multi-armed spiral drawn as a chain of overlapping
-//! discs, tapering from a hot white core out to cool blue tips. They all
-//! rotate, each at its own rate and direction, and drift slowly across
-//! the sky.
+//! discs, tapering from a hot white core out to cool blue tips. They
+//! stay exactly where they were placed, turning — each at its own rate,
+//! half of them the other way round — and breathing in and out.
 //!
 //! The sky between them is not a flat backdrop either: short brush
 //! strokes ride a slowly-churning flow field, which is what gives the
-//! background its streaming, painted current.
+//! background its streaming, painted current. Every stroke belongs to
+//! one star and is reborn around it, so the current visibly comes *out
+//! of* the stars rather than washing across an unrelated sky.
 //!
 //! The frame is only ever *faded* towards the night color rather than
 //! cleared, so every stroke smears a little into the frames after it.
@@ -42,10 +44,18 @@ const ARM_STEPS: usize = 18;
 
 const SPIN_MIN: f32 = 0.35; // rad/sec
 const SPIN_MAX: f32 = 1.6;
-/// Very slow on purpose: `pick_spot` goes to some trouble to space the
-/// swirls out at construction, and anything faster than a crawl undoes
-/// that within seconds by drifting them back into each other.
-const DRIFT_SPEED: f32 = 1.1; // px/sec
+
+/// Swirls breathe rather than travel: each one stays exactly where it
+/// was first placed and pulses between `1 - PULSE_AMP` and `1 +
+/// PULSE_AMP` of its base radius while it turns.
+///
+/// They used to drift, which was a mistake twice over — it undid the
+/// spacing `pick_spot` works to establish, and a swirl wandering off its
+/// spot reads as one star vanishing and a different one appearing rather
+/// than as a single star breathing.
+const PULSE_AMP: f32 = 0.42;
+const PULSE_RATE_MIN: f32 = 0.3; // rad/sec
+const PULSE_RATE_MAX: f32 = 1.0;
 
 const RADIUS_MIN: f32 = 7.0;
 const RADIUS_MAX: f32 = 22.0;
@@ -82,6 +92,12 @@ const FLOW_CHURN: f32 = 0.22;
 /// keeps the density uniform whatever the field does.
 const FLOW_LIFE_MIN: f32 = 1.6;
 const FLOW_LIFE_MAX: f32 = 4.2;
+/// Where a stroke is born, as a multiple of its home swirl's radius.
+/// Strokes come *from* the stars — that's where the painting's currents
+/// originate — so each one is permanently assigned a star and respawns
+/// around it, rather than anywhere on the canvas.
+const FLOW_SPAWN_R_MIN: f32 = 0.35;
+const FLOW_SPAWN_R_MAX: f32 = 2.3;
 /// Seconds spent fading in at birth and out at death, so recycling a
 /// stroke doesn't pop.
 const FLOW_FADE_SEC: f32 = 0.45;
@@ -96,9 +112,14 @@ const MAX_DT: f32 = 1.0 / 20.0;
 struct Swirl {
     x: f32,
     y: f32,
-    vx: f32,
-    vy: f32,
+    /// The radius this swirl pulses around; `radius` is the current,
+    /// breathing one that actually gets drawn.
+    base_radius: f32,
     radius: f32,
+    /// Phase and rate of the breathing, per swirl so they don't pulse in
+    /// unison.
+    pulse_phase: f32,
+    pulse_rate: f32,
     angle: f32,
     /// Signed, so half of them turn the other way.
     spin: f32,
@@ -121,6 +142,10 @@ struct Flow {
     /// before being recycled — see `FLOW_LIFE_MIN`.
     age: f32,
     life: f32,
+    /// Index of the swirl this stroke is born around, every time it
+    /// respawns. Fixed for the stroke's whole existence so every star
+    /// keeps its own share of the current flowing out of it.
+    home: usize,
 }
 
 pub struct Starry {
@@ -180,16 +205,19 @@ impl Starry {
         self.swirls.clear();
         self.swirls.reserve(n);
         for _ in 0..n {
-            let drift = rng.range_f32(0.0, TAU);
-            let speed = rng.range_f32(0.0, DRIFT_SPEED);
             let radius = rng.range_f32(RADIUS_MIN, max_radius);
-            let (x, y) = self.pick_spot(radius, rng);
+            // Space them for how big they get at the *top* of their
+            // pulse, not their resting size -- otherwise two neighbors
+            // that look comfortably apart collide every time they both
+            // breathe in.
+            let (x, y) = self.pick_spot(radius * (1.0 + PULSE_AMP), rng);
             self.swirls.push(Swirl {
                 x,
                 y,
-                vx: drift.cos() * speed,
-                vy: drift.sin() * speed,
+                base_radius: radius,
                 radius,
+                pulse_phase: rng.range_f32(0.0, TAU),
+                pulse_rate: rng.range_f32(PULSE_RATE_MIN, PULSE_RATE_MAX),
                 angle: rng.range_f32(0.0, TAU),
                 spin: rng.range_f32(SPIN_MIN, SPIN_MAX) * if rng.bool_p(0.5) { 1.0 } else { -1.0 },
                 arms: rng.range_i32(ARMS_MIN as i32, ARMS_MAX as i32 + 1) as u32,
@@ -206,8 +234,12 @@ impl Starry {
         let n = n.clamp(FLOW_STROKES_MIN, FLOW_STROKES_MAX);
         self.flow.clear();
         self.flow.reserve(n);
-        for _ in 0..n {
-            let mut f = Self::spawn_stroke(self.w, self.h, rng);
+        for i in 0..n {
+            // Round-robin rather than random, so every star is
+            // guaranteed its own share of strokes instead of some
+            // getting none by chance.
+            let home = if self.swirls.is_empty() { 0 } else { i % self.swirls.len() };
+            let mut f = self.spawn_stroke(home, rng);
             // Stagger the starting ages so they don't all recycle in
             // lockstep on the first pass.
             f.age = rng.range_f32(0.0, f.life);
@@ -215,15 +247,25 @@ impl Starry {
         }
     }
 
-    fn spawn_stroke(w: f32, h: f32, rng: &mut Rng) -> Flow {
+    /// Births a stroke in the sky around swirl `home` — see
+    /// `FLOW_SPAWN_R_MIN`.
+    fn spawn_stroke(&self, home: usize, rng: &mut Rng) -> Flow {
+        let (cx, cy, r) = match self.swirls.get(home) {
+            Some(s) => (s.x, s.y, s.base_radius),
+            // No stars (degenerate canvas): fall back to anywhere.
+            None => (rng.range_f32(0.0, self.w), rng.range_f32(0.0, self.h), RADIUS_MIN),
+        };
+        let ang = rng.range_f32(0.0, TAU);
+        let dist = r * rng.range_f32(FLOW_SPAWN_R_MIN, FLOW_SPAWN_R_MAX);
         Flow {
-            x: rng.range_f32(0.0, w),
-            y: rng.range_f32(0.0, h),
+            x: (cx + ang.cos() * dist).rem_euclid(self.w),
+            y: (cy + ang.sin() * dist).rem_euclid(self.h),
             len: rng.range_f32(7.0, 22.0),
             hue: rng.range_f32(198.0, 232.0),
             val: rng.range_f32(0.34, 0.72),
             age: 0.0,
             life: rng.range_f32(FLOW_LIFE_MIN, FLOW_LIFE_MAX),
+            home,
         }
     }
 
@@ -246,6 +288,7 @@ impl Starry {
 
     /// Mitchell's best-candidate sampling: throw a handful of darts and
     /// keep whichever lands furthest from everything already placed.
+    /// `radius` is the caller's *peak* radius, not its resting one.
     ///
     /// Uniform random placement clumps — that is what uniform random
     /// *does* — and with a dozen swirls on a small canvas those clumps
@@ -268,7 +311,8 @@ impl Starry {
             for s in &self.swirls {
                 let dx = wrap_delta(cx, s.x, self.w);
                 let dy = wrap_delta(cy, s.y, self.h);
-                score = score.min((dx * dx + dy * dy).sqrt() - (radius + s.radius));
+                let theirs = s.base_radius * (1.0 + PULSE_AMP);
+                score = score.min((dx * dx + dy * dy).sqrt() - (radius + theirs));
             }
             if score > best_score {
                 best_score = score;
@@ -340,7 +384,8 @@ impl Sim for Starry {
         for i in 0..self.flow.len() {
             let f = self.flow[i];
             if f.age >= f.life {
-                self.flow[i] = Self::spawn_stroke(self.w, self.h, rng);
+                let fresh = self.spawn_stroke(f.home, rng);
+                self.flow[i] = fresh;
                 continue;
             }
             let ang = self.flow_angle(f.x, f.y);
@@ -371,9 +416,10 @@ impl Sim for Starry {
             }
             s.angle = (s.angle + rate * dt).rem_euclid(TAU);
 
-            // Wrap rather than bounce: a sky has no edges.
-            s.x = (s.x + s.vx * dt).rem_euclid(self.w);
-            s.y = (s.y + s.vy * dt).rem_euclid(self.h);
+            // Breathe in place. The star never leaves the spot it was
+            // placed on — see `PULSE_AMP`.
+            s.pulse_phase = (s.pulse_phase + s.pulse_rate * dt).rem_euclid(TAU);
+            s.radius = s.base_radius * (1.0 + PULSE_AMP * s.pulse_phase.sin());
         }
 
     }
@@ -503,6 +549,93 @@ mod tests {
             placed > uniform,
             "spaced placement ({placed:.1}) is no better than uniform random ({uniform:.1})"
         );
+    }
+
+    #[test]
+    fn stars_stay_put_and_breathe() {
+        // A star must never leave the spot it was placed on -- drifting
+        // reads as one star vanishing and another appearing -- while its
+        // radius pulses up and down as it turns.
+        let mut rng = Rng::new(50);
+        let mut sim = make(320, 96, 50);
+        let start = sim.positions();
+
+        let mut min_r = vec![f32::INFINITY; sim.swirl_count()];
+        let mut max_r = vec![f32::NEG_INFINITY; sim.swirl_count()];
+        for _ in 0..1800 {
+            sim.step(1.0 / 60.0, &Input::default(), &mut rng);
+            for (i, r) in sim.radii().iter().enumerate() {
+                min_r[i] = min_r[i].min(*r);
+                max_r[i] = max_r[i].max(*r);
+            }
+        }
+
+        for (i, ((x0, y0), (x1, y1))) in start.iter().zip(sim.positions().iter()).enumerate() {
+            assert!(
+                (x0 - x1).abs() < 1e-3 && (y0 - y1).abs() < 1e-3,
+                "star {i} moved from ({x0}, {y0}) to ({x1}, {y1})"
+            );
+        }
+        for i in 0..min_r.len() {
+            assert!(
+                max_r[i] > min_r[i] * 1.3,
+                "star {i} barely changed size: {:.1} -> {:.1}",
+                min_r[i],
+                max_r[i]
+            );
+        }
+    }
+
+    #[test]
+    fn every_star_keeps_emitting_strokes() {
+        // The sky's currents come from the stars, and each star should
+        // keep its own share going -- not just whichever ones happened to
+        // win a coin flip.
+        let mut rng = Rng::new(51);
+        let mut sim = make(320, 96, 51);
+        let stars = sim.swirl_count();
+
+        let mut emitted = vec![0usize; stars];
+        for f in &sim.flow {
+            emitted[f.home] += 1;
+        }
+        for (i, n) in emitted.iter().enumerate() {
+            assert!(*n > 0, "star {i} has no strokes assigned to it");
+        }
+
+        // And they stay assigned across recycling, rather than drifting
+        // into a few stars owning everything.
+        for _ in 0..1200 {
+            sim.step(1.0 / 60.0, &Input::default(), &mut rng);
+        }
+        let mut after = vec![0usize; stars];
+        for f in &sim.flow {
+            after[f.home] += 1;
+        }
+        assert_eq!(emitted, after, "stroke ownership drifted between stars");
+    }
+
+    #[test]
+    fn strokes_are_born_near_their_star() {
+        // Freshly spawned strokes should appear around their star, not
+        // anywhere on the canvas -- that's what makes the current look
+        // like it streams out of the stars.
+        let mut rng = Rng::new(52);
+        let sim = make(320, 96, 52);
+        for home in 0..sim.swirl_count() {
+            let star = sim.positions()[home];
+            let r = sim.radii()[home];
+            for _ in 0..20 {
+                let f = sim.spawn_stroke(home, &mut rng);
+                let dx = wrap_delta(f.x, star.0, 320.0);
+                let dy = wrap_delta(f.y, star.1, 96.0);
+                let dist = (dx * dx + dy * dy).sqrt();
+                assert!(
+                    dist <= r * FLOW_SPAWN_R_MAX + 1e-3,
+                    "stroke spawned {dist:.1}px from star {home} (radius {r:.1})"
+                );
+            }
+        }
     }
 
     #[test]
@@ -681,3 +814,4 @@ mod tests {
         sim.step(1.0 / 60.0, &Input::default(), &mut rng);
     }
 }
+

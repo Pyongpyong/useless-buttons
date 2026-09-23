@@ -9,8 +9,8 @@ Each `<useless-button>` is a real, focusable, form-participating
 `<button>` whose background is a live Rust/wasm simulation — a boid
 swarm, falling sand, Conway's Game of Life, a cursor-chasing Mandelbrot
 zoom, a bouncing-pixel collision chamber, a first-person maze crawl, a
-sky of rotating Van Gogh swirls, or a Voronoi diagram over drifting
-points — rendered straight into the button's own canvas. Ships as a
+sky of rotating Van Gogh swirls, a Voronoi diagram over drifting
+points, or a jump to lightspeed — rendered straight into the button's own canvas. Ships as a
 dependency-free Web Component, so it works in React, Vue, Svelte, or a
 plain `.html` file identically.
 
@@ -49,6 +49,7 @@ npm install useless-buttons
 <useless-button variant="dungeon">Dungeon crawl</useless-button>
 <useless-button variant="starry">Starry night</useless-button>
 <useless-button variant="voronoi">Voronoi cells</useless-button>
+<useless-button variant="hyperdrive">Punch it</useless-button>
 ```
 
 Importing the package auto-registers `<useless-button>`. It behaves like
@@ -79,8 +80,9 @@ defineUselessButton("my-button"); // registers an additional alias tag
 | `fractal` | A Mandelbrot explorer, computed at half resolution and upscaled 2×2, `f64` coordinates, adaptive iteration count | Zoom only ever increases — even fully idle it keeps deepening on its own; hovering steers the center towards the cursor and roughly doubles the rate. Continuous boundary-detail probing nudges the view away from flat/boring (solid interior or empty space) patches, and relocates to a new hand-picked coordinate if one is crossed anyway — the fractal never dead-ends on a blank screen. Click: jump straight to the next coordinate. |
 | `bounce` | Dozens of pixels bouncing around a fully elastic collision chamber, changing both direction and a genuinely random full-spectrum color on every wall or pixel-pixel hit | Purely ambient — no pointer interaction. The background is never cleared or faded: only the particles' current positions get painted, so every pass any pixel has ever taken through the canvas stays visible as a permanent trail. |
 | `dungeon` | A first-person raycaster (DDA, Wolfenstein/DOOM-style) through a 47×35 procedurally-carved maze. Walls are brick, in running bond, and colored by which way they run as seen from above — north-south walls warm/red, east-west ones cool/blue — with each straight run taking its own hue from that family, so a corridor holds one color along its length and every corner is a visible break. Floor and ceiling are cast per pixel into square tiles, the ceiling's twice the size of the floor's, both fading out with distance | Purely ambient — no pointer interaction. Walks center-to-center on autopilot forever, turning in place at each cell before moving on, picking a new open direction at every junction and reversing only at dead ends. The maze is deliberately far larger than what's visible so it roams instead of pacing the same few corridors. |
-| `starry` | *Starry Night*, more or less: at least eight multi-armed spirals over a deep blue sky, each drawn as a chain of tapering strokes from a hot white core out to cool blue tips. Each turns at its own rate, half of them the other way round. The sky between them is not a backdrop — short brush strokes ride a slowly-churning flow field, giving the background its streaming painted current. Swirls are placed by best-candidate sampling rather than uniformly at random, since uniform random clumps and a clump of spirals reads as one blob | Hover: swirls near the cursor spin up to ~3x, ramped by distance so there's no visible boundary. Click: reverses every swirl at once. |
+| `starry` | *Starry Night*, more or less: at least eight multi-armed spirals, each drawn as a chain of tapering strokes from a hot white core out to cool blue tips. They stay put and breathe — turning at their own rate, half of them the other way round, pulsing between roughly 0.6x and 1.4x their size — rather than drifting, since a swirl wandering off its spot reads as one star vanishing and another appearing. The sky between them streams: short brush strokes ride a slowly-churning flow field, each one belonging to a particular star and reborn around it, so the current comes out of the stars. Placement is best-candidate sampling at each swirl's *peak* size, because uniform random clumps and a clump of spirals reads as one blob | Hover: swirls near the cursor spin up to ~3x, ramped by distance so there's no visible boundary. Click: reverses every swirl at once. |
 | `voronoi` | A Voronoi diagram over drifting sites, each cell filled with its own random color. Every pixel is simply colored by its nearest site, so the cell boundaries fall out of the coloring rather than being built as geometry — no edge list to keep consistent while the sites move. Sampled at half resolution, since the cost is sites × pixels | Hover: the cursor joins in as one more site, carving its own cell out of whatever it's standing on. Click: re-rolls every cell's color. |
+| `hyperdrive` | The jump to lightspeed, on a loop. A 3D starfield under perspective projection with the camera falling *away* from the stars, so growing depth shrinks `x / z` and each star rushes inward and is swallowed by the vanishing point. Each is drawn as the streak between where it was and where it is, so the streaks stretch as the drive spools up. Runs as a cycle — near-still field, spool-up, a hard punch, a white flash — because standing at full speed forever loses the acceleration that makes the shot work | Hover: skips the idle stretch and spools up early. Click: punches straight to the jump. |
 
 An unrecognized or misspelled `variant` (`"SWRAM "`, `"boidz"`, ...) never
 throws or renders a broken button — it silently falls back to `swarm`.
@@ -103,7 +105,7 @@ label's own text color instead (see below).
 |---|---|---|---|
 | `variant` | `.variant` | `"swarm"` | Case/whitespace-tolerant. Changing it at runtime tears down and recreates the simulation. |
 | `seed` | `.seed` | `1` | Unsigned 32-bit PRNG seed. Same seed + same size ⇒ identical animation. Changing it recreates the simulation. |
-| `fps` | `.fps` | the variant's `preferred_fps` (currently 60 for all eight) | Caps how often the simulation is stepped, independent of the shared render loop's own rate. |
+| `fps` | `.fps` | the variant's `preferred_fps` (currently 60 for all nine) | Caps how often the simulation is stepped, independent of the shared render loop's own rate. |
 | `disabled` | `.disabled` | absent | Reflects onto the real, inner `<button disabled>` — native disabled semantics apply (no clicks, no focus, no form submission). |
 | `text-fx` | `.textFx` | `"spin"` | Decorative label animation — see below. Always on by default; pass `text-fx="none"` to opt out. |
 
@@ -308,7 +310,8 @@ Other useful scripts:
 npm test       # cargo test — the simulation logic, verified natively
 npm run preview  # cargo run --release --example preview
                # renders preview/{swarm,sand,life,fractal,bounce,
-               #          dungeon,starry,voronoi}.gif
+               #          dungeon,starry,
+               #          voronoi,hyperdrive}.gif
                # so you can eyeball a variant without a browser
 ```
 

@@ -3,6 +3,7 @@
 pub mod bounce;
 pub mod dungeon;
 pub mod fractal;
+pub mod hyperdrive;
 pub mod life;
 pub mod sand;
 pub mod starry;
@@ -58,6 +59,7 @@ pub enum Variant {
     Dungeon,
     Starry,
     Voronoi,
+    Hyperdrive,
 }
 
 impl Variant {
@@ -74,6 +76,7 @@ impl Variant {
             "dungeon" | "dungeon-explorer" | "maze" | "doom" => Variant::Dungeon,
             "starry" | "starry-night" | "vangogh" | "van-gogh" => Variant::Starry,
             "voronoi" | "voronoi-diagram" | "cells" => Variant::Voronoi,
+            "hyperdrive" | "lightspeed" | "warp" | "hyperspace" => Variant::Hyperdrive,
             "swarm" | "boids" | "" => Variant::Swarm,
             _ => Variant::Swarm,
         }
@@ -89,6 +92,7 @@ impl Variant {
             Variant::Dungeon => "dungeon",
             Variant::Starry => "starry",
             Variant::Voronoi => "voronoi",
+            Variant::Hyperdrive => "hyperdrive",
         }
     }
 
@@ -103,6 +107,7 @@ impl Variant {
             Variant::Dungeon => Box::new(dungeon::Dungeon::new(w, h, rng)),
             Variant::Starry => Box::new(starry::Starry::new(w, h, rng)),
             Variant::Voronoi => Box::new(voronoi::Voronoi::new(w, h, rng)),
+            Variant::Hyperdrive => Box::new(hyperdrive::Hyperdrive::new(w, h, rng)),
         }
     }
 }
@@ -131,6 +136,9 @@ mod tests {
         assert_eq!(Variant::parse("starry-night"), Variant::Starry);
         assert_eq!(Variant::parse("Voronoi"), Variant::Voronoi);
         assert_eq!(Variant::parse("cells"), Variant::Voronoi);
+        assert_eq!(Variant::parse("Hyperdrive"), Variant::Hyperdrive);
+        assert_eq!(Variant::parse("lightspeed"), Variant::Hyperdrive);
+        assert_eq!(Variant::parse("warp"), Variant::Hyperdrive);
     }
 
     #[test]
