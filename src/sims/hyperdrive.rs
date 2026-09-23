@@ -25,9 +25,9 @@ const SPACE: Rgb = Rgb::new(0x05, 0x06, 0x12);
 /// than being redrawn from nothing every time.
 const FADE: f32 = 0.34;
 
-const STARS_PER_1000_PX: f32 = 5.5;
-const STARS_MIN: usize = 60;
-const STARS_MAX: usize = 420;
+const STARS_PER_1000_PX: f32 = 17.0;
+const STARS_MIN: usize = 120;
+const STARS_MAX: usize = 900;
 
 /// Depth range a star lives in. Small `z` is right on top of the camera
 /// (projected way out past the edges of the canvas); `Z_FAR` is the
@@ -48,13 +48,21 @@ const CYCLE_SEC: f32 = IDLE_SEC + SPOOL_SEC + PUNCH_SEC + FLASH_SEC;
 /// Depth units per second at rest, and at full lightspeed.
 const SPEED_IDLE: f32 = 0.22;
 const SPEED_LIGHT: f32 = 26.0;
-/// How much of the distance covered this frame gets drawn as a streak.
-/// Above 1 the trails overlap frame to frame, which is what keeps them
-/// continuous instead of dashed at high speed.
-const STREAK_FACTOR: f32 = 1.35;
-/// Longest streak we will draw, in projected px — a star crossing the
-/// vanishing point can otherwise produce an arbitrarily long line.
-const STREAK_MAX_PX: f32 = 420.0;
+/// How many frames' worth of travel each streak is smeared over, at rest
+/// and at full lightspeed.
+///
+/// It ramps rather than staying fixed because streak length otherwise
+/// only grows in step with speed, and in the film the lines don't just
+/// get faster — at the moment of the jump they stretch until they span
+/// the whole frame. Multiplying the smear by the drive's own intensity
+/// is what produces that.
+const STREAK_FRAMES_IDLE: f32 = 1.2;
+const STREAK_FRAMES_LIGHT: f32 = 7.0;
+/// Longest streak drawn, as a multiple of the canvas diagonal. A star
+/// passing close to the vanishing point can otherwise produce an
+/// arbitrarily long line; this still leaves plenty of room to cross the
+/// canvas end to end.
+const STREAK_MAX_DIAGONALS: f32 = 3.0;
 
 /// Hovering spools the drive up early; clicking punches it immediately.
 const MAX_DT: f32 = 1.0 / 20.0;
@@ -233,11 +241,15 @@ impl Sim for Hyperdrive {
         }
 
         let speed = drive_speed(self.cycle_t);
-        // How far back along its own path each star gets smeared.
-        let trail_z = speed * STREAK_FACTOR * (1.0 / 60.0);
-        // 0 at rest, 1 at lightspeed -- drives how hot and how thick the
-        // streaks are drawn.
+        // 0 at rest, 1 at lightspeed -- drives how long, how hot and how
+        // thick the streaks are drawn.
         let intensity = ((speed - SPEED_IDLE) / (SPEED_LIGHT - SPEED_IDLE)).clamp(0.0, 1.0);
+        // How far back along its own path each star gets smeared. Both
+        // terms grow with the drive, so the stretch at the jump is far
+        // more than linear in speed -- see `STREAK_FRAMES_IDLE`.
+        let smear_frames = STREAK_FRAMES_IDLE + (STREAK_FRAMES_LIGHT - STREAK_FRAMES_IDLE) * intensity;
+        let trail_z = speed * smear_frames * (1.0 / 60.0);
+        let max_streak = (self.w * self.w + self.h * self.h).sqrt() * STREAK_MAX_DIAGONALS;
 
         for s in &self.stars {
             let Some((x1, y1)) = self.project(s, s.z) else { continue };
@@ -246,10 +258,19 @@ impl Sim for Hyperdrive {
 
             let dx = x1 - x0;
             let dy = y1 - y0;
-            let len = (dx * dx + dy * dy).sqrt().min(STREAK_MAX_PX);
+            let len = (dx * dx + dy * dy).sqrt();
             if !len.is_finite() {
                 continue;
             }
+            // Trim from the tail rather than dropping the streak, so a
+            // star passing near the vanishing point still draws the part
+            // of its trail that matters.
+            let (x0, y0) = if len > max_streak && len > 0.0 {
+                let k = max_streak / len;
+                (x1 - dx * k, y1 - dy * k)
+            } else {
+                (x0, y0)
+            };
 
             // Nearer stars are bigger and brighter; everything gets
             // hotter and whiter as the drive spools up.
@@ -259,17 +280,24 @@ impl Sim for Hyperdrive {
             let color = Rgb::from_hsv(s.hue, sat, val);
             let thickness = 0.7 + depth_t * 0.9 + intensity * 0.5;
 
-            // Stamp the streak as a row of discs along its own direction.
-            // `paint` has no line primitive, and discs give the trail
-            // rounded ends for free.
-            let steps = (len / 1.4).ceil().clamp(1.0, 160.0) as usize;
-            let inv = 1.0 / steps as f32;
-            for i in 0..=steps {
-                let t = i as f32 * inv;
-                // Fade towards the tail so streaks look like they're
-                // being drawn out, not sliding around as solid bars.
-                let alpha = (0.35 + 0.65 * t) * (0.5 + 0.5 * intensity);
-                frame.disc(x0 + dx * t, y0 + dy * t, thickness, color, alpha);
+            // Drawn in three segments rather than one, so the trail can
+            // fade from a faint tail to a bright head -- a single flat
+            // line reads as a sliding bar instead of something being
+            // drawn out at speed. `Frame::line` clips, so the portion
+            // that runs off the canvas costs nothing.
+            let head_alpha = 0.55 + 0.45 * intensity;
+            const SEGMENTS: usize = 3;
+            for i in 0..SEGMENTS {
+                let t0 = i as f32 / SEGMENTS as f32;
+                let t1 = (i + 1) as f32 / SEGMENTS as f32;
+                let alpha = head_alpha * (0.25 + 0.75 * t1);
+                frame.line(
+                    (x0 + (x1 - x0) * t0, y0 + (y1 - y0) * t0),
+                    (x0 + (x1 - x0) * t1, y0 + (y1 - y0) * t1),
+                    thickness,
+                    color,
+                    alpha,
+                );
             }
         }
 
@@ -425,6 +453,72 @@ mod tests {
     }
 
     #[test]
+    fn streaks_fill_the_screen_at_the_jump() {
+        // The point of the shot: at rest it's a sparse starfield, and at
+        // the punch the streaks stretch until they cover most of the
+        // frame. A version that only got *faster* without stretching
+        // would pass every other test here and still look wrong.
+        fn lit_fraction(sim: &mut Hyperdrive, rng: &mut Rng, until: f32) -> f32 {
+            let mut frame = Frame::new(320, 96);
+            let theme = Theme::default();
+            let mut t = 0.0;
+            while t < until {
+                sim.step(1.0 / 60.0, &Input::default(), rng);
+                sim.render(&mut frame, &theme);
+                t += 1.0 / 60.0;
+            }
+            let lit = frame
+                .pixels
+                .chunks_exact(4)
+                .filter(|px| px[0] as u32 + px[1] as u32 + px[2] as u32 > 150)
+                .count();
+            lit as f32 / (320.0 * 96.0)
+        }
+
+        let mut rng = Rng::new(11);
+        let mut sim = make(320, 96, 11);
+        let idle = lit_fraction(&mut sim, &mut rng, IDLE_SEC * 0.8);
+        assert!(idle < 0.12, "idle starfield already covers {:.0}% of the frame", idle * 100.0);
+
+        // Carry on to deep into the punch.
+        let jump = lit_fraction(&mut sim, &mut rng, IDLE_SEC + SPOOL_SEC + PUNCH_SEC * 0.95 - IDLE_SEC * 0.8);
+        assert!(
+            jump > 0.35,
+            "at lightspeed the streaks only cover {:.0}% of the frame -- they aren't stretching",
+            jump * 100.0
+        );
+        assert!(jump > idle * 4.0, "the jump barely differs from the idle field");
+    }
+
+    #[test]
+    fn rendering_the_jump_stays_well_inside_a_frame_budget() {
+        // The streaks are long enough to run far off-canvas, and there
+        // are hundreds of them; this only stays cheap because
+        // `Frame::line` clips before walking the segment.
+        let mut rng = Rng::new(12);
+        let mut sim = make(320, 96, 12);
+        let mut frame = Frame::new(320, 96);
+        let theme = Theme::default();
+
+        let mut t = 0.0;
+        let mut worst = std::time::Duration::ZERO;
+        while t < CYCLE_SEC {
+            sim.step(1.0 / 60.0, &Input::default(), &mut rng);
+            let started = std::time::Instant::now();
+            sim.render(&mut frame, &theme);
+            worst = worst.max(started.elapsed());
+            t += 1.0 / 60.0;
+        }
+        // Generous: a debug build is many times slower than the release
+        // build that actually ships, so this is a blown-budget alarm,
+        // not a benchmark.
+        assert!(
+            worst < std::time::Duration::from_millis(80),
+            "worst frame took {worst:?}, which is nowhere near a 16.7ms budget even allowing for debug"
+        );
+    }
+
+    #[test]
     fn resize_to_tiny_does_not_panic() {
         let mut rng = Rng::new(8);
         let mut sim = make(320, 96, 8);
@@ -446,3 +540,4 @@ mod tests {
         sim.render(&mut frame, &Theme::default());
     }
 }
+

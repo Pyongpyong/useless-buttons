@@ -231,6 +231,98 @@ impl Frame {
         }
     }
 
+    /// Anti-aliased line of the given thickness, clipped to the frame.
+    ///
+    /// Stamping a long streak as a chain of `disc` calls costs a bounds
+    /// computation per stamp and forces a spacing-versus-quality
+    /// tradeoff; worse, a streak that mostly lies *outside* the canvas
+    /// still pays for every stamp along its off-screen length. This
+    /// clips the segment to the frame first (Liang–Barsky) and then
+    /// walks only the visible part, one pixel step at a time — which is
+    /// what makes streaks long enough to cross the whole canvas
+    /// affordable.
+    ///
+    /// Never panics for any input, including non-finite coordinates,
+    /// fully off-frame segments, or zero length.
+    pub fn line(&mut self, from: (f32, f32), to: (f32, f32), thickness: f32, c: Rgb, alpha: f32) {
+        let (x0, y0) = from;
+        let (x1, y1) = to;
+        if alpha <= 0.0 || thickness <= 0.0 {
+            return;
+        }
+        if !x0.is_finite() || !y0.is_finite() || !x1.is_finite() || !y1.is_finite() {
+            return;
+        }
+        let r = (thickness * 0.5).max(0.5);
+        let dx = x1 - x0;
+        let dy = y1 - y0;
+
+        // Clip against the frame expanded by the line's own radius, so a
+        // thick line whose center passes just outside still draws the
+        // part of its width that reaches in.
+        let (min_x, min_y) = (-r, -r);
+        let (max_x, max_y) = (self.w as f32 + r, self.h as f32 + r);
+        let mut t0 = 0.0f32;
+        let mut t1 = 1.0f32;
+        for (p, q) in [(-dx, x0 - min_x), (dx, max_x - x0), (-dy, y0 - min_y), (dy, max_y - y0)] {
+            if p == 0.0 {
+                if q < 0.0 {
+                    return; // parallel to this edge and entirely outside it
+                }
+            } else {
+                let t = q / p;
+                if p < 0.0 {
+                    if t > t1 {
+                        return;
+                    }
+                    if t > t0 {
+                        t0 = t;
+                    }
+                } else {
+                    if t < t0 {
+                        return;
+                    }
+                    if t < t1 {
+                        t1 = t;
+                    }
+                }
+            }
+        }
+
+        let (cx0, cy0) = (x0 + dx * t0, y0 + dy * t0);
+        let (cx1, cy1) = (x0 + dx * t1, y0 + dy * t1);
+        let seg_dx = cx1 - cx0;
+        let seg_dy = cy1 - cy0;
+        let len = (seg_dx * seg_dx + seg_dy * seg_dy).sqrt();
+        if !len.is_finite() {
+            return;
+        }
+        let steps = (len.ceil() as usize).max(1);
+        let inv = 1.0 / steps as f32;
+        let ir = r.ceil() as i64;
+
+        for i in 0..=steps {
+            let t = i as f32 * inv;
+            let px = cx0 + seg_dx * t;
+            let py = cy0 + seg_dy * t;
+            let bx = px.floor() as i64;
+            let by = py.floor() as i64;
+            for oy in -ir..=ir {
+                for ox in -ir..=ir {
+                    let sx = bx + ox;
+                    let sy = by + oy;
+                    let ddx = sx as f32 + 0.5 - px;
+                    let ddy = sy as f32 + 0.5 - py;
+                    let dist = (ddx * ddx + ddy * ddy).sqrt();
+                    let coverage = (r + 0.5 - dist).clamp(0.0, 1.0);
+                    if coverage > 0.0 {
+                        self.blend_pixel(sx, sy, c, alpha * coverage);
+                    }
+                }
+            }
+        }
+    }
+
     /// Anti-aliased filled disc, clipped to the frame. Never panics for
     /// any radius or center, including fully off-frame discs or radius
     /// `<= 0`.
@@ -357,6 +449,76 @@ mod tests {
         frame.disc(4.0, 4.0, 10_000.0, Rgb::new(1, 1, 1), 1.0);
         frame.disc(4.0, 4.0, 0.0, Rgb::new(1, 1, 1), 1.0);
         frame.disc(4.0, 4.0, -3.0, Rgb::new(1, 1, 1), 1.0);
+    }
+
+    #[test]
+    fn line_draws_between_its_endpoints() {
+        let mut frame = Frame::new(32, 32);
+        frame.fill(Rgb::new(0, 0, 0));
+        frame.line((4.0, 16.0), (28.0, 16.0), 1.0, Rgb::new(255, 255, 255), 1.0);
+
+        let lit = |x: usize, y: usize| frame.pixels[(y * 32 + x) * 4] > 40;
+        assert!(lit(16, 16), "nothing drawn at the middle of the line");
+        assert!(lit(5, 16), "nothing drawn near the start");
+        assert!(lit(27, 16), "nothing drawn near the end");
+        assert!(!lit(16, 26), "drew well away from the line");
+    }
+
+    #[test]
+    fn line_clips_to_the_frame_without_panicking() {
+        let mut frame = Frame::new(16, 16);
+        frame.fill(Rgb::new(0, 0, 0));
+        // Runs far outside on both ends but crosses the middle.
+        frame.line((-900.0, 8.0), (900.0, 8.0), 2.0, Rgb::new(255, 255, 255), 1.0);
+        assert!(frame.pixels[(8 * 16 + 8) * 4] > 40, "clipped line lost its visible part");
+
+        // Entirely off-frame, non-finite, zero-thickness and zero-alpha
+        // input are all no-ops.
+        frame.line((-50.0, -50.0), (-10.0, -10.0), 2.0, Rgb::new(255, 0, 0), 1.0);
+        frame.line((f32::NAN, 1.0), (5.0, 5.0), 2.0, Rgb::new(255, 0, 0), 1.0);
+        frame.line((1.0, 1.0), (f32::INFINITY, 5.0), 2.0, Rgb::new(255, 0, 0), 1.0);
+        frame.line((1.0, 1.0), (5.0, 5.0), 0.0, Rgb::new(255, 0, 0), 1.0);
+        frame.line((1.0, 1.0), (5.0, 5.0), 2.0, Rgb::new(255, 0, 0), 0.0);
+
+        for px in frame.pixels.chunks_exact(4) {
+            assert_eq!(px[3], 255);
+            assert_eq!(px[0], px[1], "the red no-op lines should never have landed");
+        }
+    }
+
+    #[test]
+    fn a_zero_length_line_draws_a_dot() {
+        // Not a no-op on purpose: a streak whose endpoints coincide is a
+        // stationary particle, and it should still be visible as a point
+        // rather than blinking out.
+        let mut frame = Frame::new(16, 16);
+        frame.fill(Rgb::new(0, 0, 0));
+        frame.line((8.0, 8.0), (8.0, 8.0), 2.0, Rgb::new(255, 255, 255), 1.0);
+        assert!(frame.pixels[(8 * 16 + 8) * 4] > 40, "a zero-length line drew nothing at all");
+    }
+
+    #[test]
+    fn a_long_mostly_offscreen_line_costs_only_its_visible_part() {
+        // The clip is the whole point of this primitive: a streak
+        // stretching far beyond the canvas must not walk its off-screen
+        // length. Compare against a short line fully inside the frame.
+        let mut frame = Frame::new(64, 64);
+        let huge = std::time::Instant::now();
+        for _ in 0..200 {
+            frame.line((-40_000.0, 32.0), (40_000.0, 32.0), 2.0, Rgb::new(255, 255, 255), 1.0);
+        }
+        let huge = huge.elapsed();
+
+        let short = std::time::Instant::now();
+        for _ in 0..200 {
+            frame.line((0.0, 32.0), (64.0, 32.0), 2.0, Rgb::new(255, 255, 255), 1.0);
+        }
+        let short = short.elapsed();
+
+        assert!(
+            huge < short * 20,
+            "an 80k-px line took {huge:?} against {short:?} for a 64px one -- it isn't being clipped"
+        );
     }
 
     #[test]
