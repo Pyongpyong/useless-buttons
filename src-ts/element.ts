@@ -101,9 +101,22 @@ const EXPLODE_SCALE_MAX = 1.9;
 // and each character is also *rotated to the curve's local tangent* —
 // that tangent is what makes it read as one body following a path
 // instead of a row of letters bouncing independently.
-const SNAKE_AMP_Y_PX = 15;
-/** Sideways sway, at half the vertical frequency, so the path is a slither rather than a pure up/down wave. */
-const SNAKE_AMP_X_PX = 7;
+// Amplitudes are deliberately larger than the button: a typical button is
+// ~48px tall, so a ±34px wave carries the letters clean out of its top and
+// bottom, and the whole-body sweep below takes them out past the sides
+// too. The button doesn't clip its label (`overflow: visible` below), so
+// the snake is free to leave the box entirely rather than wriggling in
+// place in the middle of it.
+const SNAKE_AMP_Y_PX = 34;
+/** Per-character sideways sway, at half the vertical frequency, so the path is a slither rather than a pure up/down wave. */
+const SNAKE_AMP_X_PX = 18;
+/**
+ * A slow horizontal sweep applied to every character equally, so the body
+ * as a whole travels across and beyond the button rather than rippling
+ * around a fixed center.
+ */
+const SNAKE_SWEEP_X_PX = 52;
+const SNAKE_SWEEP_HZ = 0.21;
 const SNAKE_SPEED_HZ = 0.62;
 /** Radians of phase between neighboring characters — the wavelength of the body, in letters. */
 const SNAKE_PHASE_PER_CHAR = 0.95;
@@ -754,10 +767,14 @@ export class UselessButtonElement extends HTMLElement {
       // character is turned to the curve's local tangent, which is what
       // makes the row of letters read as a single body following a path.
       const phaseBase = this.textFxTime * SNAKE_SPEED_HZ * Math.PI * 2;
+      // Shared sweep: carries the whole body left and right, well past
+      // the button's own edges, so the snake travels instead of
+      // wriggling on the spot.
+      const sweepX = Math.sin(this.textFxTime * SNAKE_SWEEP_HZ * Math.PI * 2) * SNAKE_SWEEP_X_PX;
       for (const ch of this.fxChars) {
         const p = phaseBase - ch.index * SNAKE_PHASE_PER_CHAR;
         const ty = Math.sin(p) * SNAKE_AMP_Y_PX;
-        const tx = Math.sin(p * 0.5) * SNAKE_AMP_X_PX;
+        const tx = sweepX + Math.sin(p * 0.5) * SNAKE_AMP_X_PX;
 
         // d(ty)/d(index): the curve's slope in px per character, turned
         // into an angle using a nominal character advance.

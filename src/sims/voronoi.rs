@@ -21,8 +21,8 @@ use std::f32::consts::TAU;
 /// regions, so halving the resolution costs almost nothing visually.
 const BLOCK_PX: usize = 2;
 
-const MIN_SITES: usize = 8;
-const MAX_SITES: usize = 28;
+const MIN_SITES: usize = 12;
+const MAX_SITES: usize = 42;
 
 const SPEED_MIN: f32 = 6.0; // px/sec
 const SPEED_MAX: f32 = 26.0;
@@ -62,7 +62,7 @@ pub struct Voronoi {
 }
 
 fn target_count(w: usize, h: usize) -> usize {
-    ((w * h) / 1400).clamp(MIN_SITES, MAX_SITES)
+    ((w * h) / 933).clamp(MIN_SITES, MAX_SITES)
 }
 
 impl Voronoi {
@@ -387,3 +387,4 @@ mod tests {
         sim.render(&mut frame, &Theme::default());
     }
 }
+

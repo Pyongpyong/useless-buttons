@@ -73,9 +73,9 @@ const MAX_DT: f32 = 1.0 / 20.0;
 // no matter how good the geometry underneath is.
 
 /// Bricks per cell across a wall face, and down it. Wider than tall, like
-/// actual brick.
-const BRICKS_ACROSS: f32 = 3.0;
-const BRICKS_DOWN: f32 = 5.0;
+/// actual brick. More per cell means *smaller* bricks.
+const BRICKS_ACROSS: f32 = 6.0;
+const BRICKS_DOWN: f32 = 10.0;
 /// Mortar gap as a fraction of one brick, across and down.
 const MORTAR_ACROSS: f32 = 0.08;
 const MORTAR_DOWN: f32 = 0.12;
@@ -832,8 +832,11 @@ mod tests {
     fn brick_pattern_has_mortar_courses_and_offset_rows() {
         // Mortar runs along the top edge of every course.
         assert!(brick_shade(0.5, 0.001) < 0.6, "expected a mortar line at the top of a course");
-        // Brick faces are brighter than mortar.
-        let face = brick_shade(0.5, 0.5);
+        // Brick faces are brighter than mortar. Sample the *middle* of a
+        // brick, derived from the density constants rather than
+        // hard-coded -- a fixed coordinate silently lands on a mortar
+        // course as soon as the brick size is retuned.
+        let face = brick_shade(0.5 / BRICKS_ACROSS, 0.5 / BRICKS_DOWN);
         assert!(face > 0.7, "brick face came out as dark as mortar: {face}");
 
         // Running bond: consecutive courses are offset by half a brick, so
