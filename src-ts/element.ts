@@ -7,6 +7,7 @@
  * `<button type="button">` inside shadow DOM; the canvas is purely
  * decorative (`aria-hidden`) and the visible label is plain slotted text.
  */
+import { SPECTACLE_TEXT_MODES, paintSpectacleChar, type SpectacleTextMode } from "./spectacle-text.js";
 import { registerFrameCallback } from "./scheduler.js";
 import { createUselessButton, readFrame, type UselessButton } from "./wasm.js";
 
@@ -16,8 +17,8 @@ const MAX_DPR = 2;
 const FALLBACK_CSS_WIDTH = 160;
 const FALLBACK_CSS_HEIGHT = 48;
 
-type TextFx = "none" | "spin" | "skew" | "explode" | "snake" | "slot";
-const TEXT_FX_VALUES: readonly TextFx[] = ["spin", "skew", "explode", "snake", "slot", "none"];
+type TextFx = "none" | "spin" | "skew" | "explode" | "snake" | "slot" | "tunnel" | SpectacleTextMode;
+const TEXT_FX_VALUES: readonly TextFx[] = ["spin", "skew", "explode", "snake", "slot", "tunnel", "none", ...SPECTACLE_TEXT_MODES];
 
 /**
  * Modes that animate each character on its own, rather than transforming
@@ -26,7 +27,7 @@ const TEXT_FX_VALUES: readonly TextFx[] = ["spin", "skew", "explode", "snake", "
  * layer of per-character `<span>`s is animated in its place (see
  * `syncLabelMode`).
  */
-const PER_CHAR_FX: ReadonlySet<TextFx> = new Set<TextFx>(["explode", "snake", "slot"]);
+const PER_CHAR_FX: ReadonlySet<TextFx> = new Set<TextFx>(["explode", "snake", "slot", ...SPECTACLE_TEXT_MODES]);
 
 // --- `text-fx="spin"`: continuous rotation whose angular *speed* traces
 // a sine wave (always net-forward — amplitude is kept under the base
@@ -272,7 +273,20 @@ span[part="label"] {
    animates characters individually (see PER_CHAR_FX). */
 :host([text-fx="explode"]) .label-fx,
 :host([text-fx="snake"]) .label-fx,
-:host([text-fx="slot"]) .label-fx {
+:host([text-fx="slot"]) .label-fx,
+:host([text-fx="blackhole"]) .label-fx,
+:host([text-fx="chrome"]) .label-fx,
+:host([text-fx="plasma"]) .label-fx,
+:host([text-fx="stained-glass"]) .label-fx,
+:host([text-fx="aurora"]) .label-fx,
+:host([text-fx="ripple"]) .label-fx,
+:host([text-fx="hologram"]) .label-fx,
+:host([text-fx="supernova"]) .label-fx,
+:host([text-fx="matrix"]) .label-fx,
+:host([text-fx="zoom"]) .label-fx,
+:host([text-fx="ricochet"]) .label-fx,
+:host([text-fx="corridor"]) .label-fx,
+:host([text-fx="streak"]) .label-fx {
   display: inline-block;
   position: absolute;
   inset: 0;
@@ -350,6 +364,7 @@ export class UselessButtonElement extends HTMLElement {
   private tickAccumulator = 0;
 
   private textFxTime = 0;
+  private textFxClickAge = 2;
   private spinAngleDeg = 0;
   private spinCycleT = 0; // 0..1 progress within the current spin cycle
   private spinCycleIndex = 0;
@@ -480,7 +495,7 @@ export class UselessButtonElement extends HTMLElement {
    * own center, angular speed tracing a sine wave, scale pulsing along
    * with it), `"skew"` (a large, fast, non-repeating-looking skew
    * wobble), `"explode"` (characters burst apart into "pixels" and
-   * re-assemble, on a loop), or `"none"` to opt out. Some label motion is
+   * re-assemble, on a loop), `"tunnel"` (colored depth echoes), or `"none"` to opt out. Some label motion is
    * on by default — pass `text-fx="none"` to get a static label. Disabled
    * automatically under `prefers-reduced-motion: reduce`, same as the
    * canvas animation.
@@ -696,15 +711,19 @@ export class UselessButtonElement extends HTMLElement {
   /** Clears any active label transform/phase state back to neutral. Does not remove the explode `<span>`s — just re-centers them. */
   private resetTextFx(): void {
     this.textFxTime = 0;
+    this.textFxClickAge = 2;
     this.spinAngleDeg = 0;
     this.spinCycleT = 0;
     this.spinCycleIndex = 0;
     this.spinCyclePeriodSec = (SPIN_CYCLE_MIN_SEC + SPIN_CYCLE_MAX_SEC) / 2;
     this.spinCycleScaleAmp = (SPIN_SCALE_AMP_MIN + SPIN_SCALE_AMP_MAX) / 2;
     this.labelEl.style.transform = "";
+    this.labelEl.style.textShadow = "";
     for (const ch of this.fxChars) {
       ch.el.style.transform = "";
       ch.el.style.opacity = "";
+      ch.el.style.textShadow = "";
+      ch.el.style.color = "";
     }
   }
 
@@ -712,6 +731,28 @@ export class UselessButtonElement extends HTMLElement {
     const mode = this.textFx;
     if (mode === "none") return;
     this.textFxTime += dt;
+    this.textFxClickAge = Math.min(2, this.textFxClickAge + dt);
+    if ((SPECTACLE_TEXT_MODES as readonly string[]).includes(mode)) {
+      for (const ch of this.fxChars) {
+        paintSpectacleChar(mode as SpectacleTextMode, ch.el, ch.index,
+          this.fxChars.length, this.textFxTime, this.textFxClickAge);
+      }
+      return;
+    }
+
+    if (mode === "tunnel") {
+      const t = this.textFxTime * 2.4;
+      const dx = Math.cos(t * 0.7) * 0.9;
+      const dy = Math.sin(t * 0.9) * 0.7;
+      const shadows = [];
+      for (let i = 1; i <= 18; i++) {
+        const depth = i + (t * 8) % 1;
+        shadows.push(`${dx * depth}px ${dy * depth}px ${i * 0.15}px hsla(${190 + i * 9 + t * 30}, 100%, 65%, ${(1 - i / 20) * 0.65})`);
+      }
+      this.labelEl.style.textShadow = shadows.join(",");
+      this.labelEl.style.transform = `perspective(300px) rotateY(${Math.sin(t * 0.7) * 18}deg) scale(${1 + Math.sin(t * 1.4) * 0.06})`;
+      return;
+    }
 
     if (mode === "spin") {
       // Each cycle is a full sine sweep of the angular *speed* (always
@@ -783,6 +824,8 @@ export class UselessButtonElement extends HTMLElement {
 
         ch.el.style.transform = `translate(${tx}px, ${ty}px) rotate(${tangentDeg}deg)`;
         ch.el.style.opacity = "";
+      ch.el.style.textShadow = "";
+      ch.el.style.color = "";
       }
       return;
     }
@@ -892,6 +935,7 @@ export class UselessButtonElement extends HTMLElement {
   private onClick = (): void => {
     if (!this.core) return;
     this.core.click();
+    this.textFxClickAge = 0;
     if (this.prefersReducedMotion()) {
       // No rAF loop is running in reduced-motion mode: advance exactly
       // one step so a click still visibly does something.
