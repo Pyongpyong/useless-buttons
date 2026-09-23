@@ -5,7 +5,9 @@ pub mod dungeon;
 pub mod fractal;
 pub mod life;
 pub mod sand;
+pub mod starry;
 pub mod swarm;
+pub mod voronoi;
 
 use crate::paint::{Frame, Theme};
 use crate::rng::Rng;
@@ -54,6 +56,8 @@ pub enum Variant {
     Fractal,
     Bounce,
     Dungeon,
+    Starry,
+    Voronoi,
 }
 
 impl Variant {
@@ -68,6 +72,8 @@ impl Variant {
             "fractal" | "mandelbrot" => Variant::Fractal,
             "bounce" | "pixel-bounce" | "pixelbounce" => Variant::Bounce,
             "dungeon" | "dungeon-explorer" | "maze" | "doom" => Variant::Dungeon,
+            "starry" | "starry-night" | "vangogh" | "van-gogh" => Variant::Starry,
+            "voronoi" | "voronoi-diagram" | "cells" => Variant::Voronoi,
             "swarm" | "boids" | "" => Variant::Swarm,
             _ => Variant::Swarm,
         }
@@ -81,6 +87,8 @@ impl Variant {
             Variant::Fractal => "fractal",
             Variant::Bounce => "bounce",
             Variant::Dungeon => "dungeon",
+            Variant::Starry => "starry",
+            Variant::Voronoi => "voronoi",
         }
     }
 
@@ -93,6 +101,8 @@ impl Variant {
             Variant::Fractal => Box::new(fractal::Fractal::new(w, h, rng)),
             Variant::Bounce => Box::new(bounce::Bounce::new(w, h, rng)),
             Variant::Dungeon => Box::new(dungeon::Dungeon::new(w, h, rng)),
+            Variant::Starry => Box::new(starry::Starry::new(w, h, rng)),
+            Variant::Voronoi => Box::new(voronoi::Voronoi::new(w, h, rng)),
         }
     }
 }
@@ -117,6 +127,10 @@ mod tests {
         assert_eq!(Variant::parse("Dungeon"), Variant::Dungeon);
         assert_eq!(Variant::parse("maze"), Variant::Dungeon);
         assert_eq!(Variant::parse("doom"), Variant::Dungeon);
+        assert_eq!(Variant::parse("Starry"), Variant::Starry);
+        assert_eq!(Variant::parse("starry-night"), Variant::Starry);
+        assert_eq!(Variant::parse("Voronoi"), Variant::Voronoi);
+        assert_eq!(Variant::parse("cells"), Variant::Voronoi);
     }
 
     #[test]

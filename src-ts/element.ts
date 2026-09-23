@@ -16,8 +16,17 @@ const MAX_DPR = 2;
 const FALLBACK_CSS_WIDTH = 160;
 const FALLBACK_CSS_HEIGHT = 48;
 
-type TextFx = "none" | "spin" | "skew" | "explode";
-const TEXT_FX_VALUES: readonly TextFx[] = ["spin", "skew", "explode", "none"];
+type TextFx = "none" | "spin" | "skew" | "explode" | "snake" | "slot";
+const TEXT_FX_VALUES: readonly TextFx[] = ["spin", "skew", "explode", "snake", "slot", "none"];
+
+/**
+ * Modes that animate each character on its own, rather than transforming
+ * the label as a single block. They all share the same machinery: the
+ * real slotted text is hidden but keeps its layout box, and a parallel
+ * layer of per-character `<span>`s is animated in its place (see
+ * `syncLabelMode`).
+ */
+const PER_CHAR_FX: ReadonlySet<TextFx> = new Set<TextFx>(["explode", "snake", "slot"]);
 
 // --- `text-fx="spin"`: continuous rotation whose angular *speed* traces
 // a sine wave (always net-forward — amplitude is kept under the base
@@ -86,6 +95,40 @@ const EXPLODE_ROTATE_MAX_DEG = 210;
 const EXPLODE_SCALE_MIN = 1.1;
 const EXPLODE_SCALE_MAX = 1.9;
 
+// --- `text-fx="snake"`: the characters slither along a travelling wave.
+// Each one is a sample of the same curve at its own phase offset, so the
+// word ripples end to end rather than every letter bobbing in unison,
+// and each character is also *rotated to the curve's local tangent* —
+// that tangent is what makes it read as one body following a path
+// instead of a row of letters bouncing independently.
+const SNAKE_AMP_Y_PX = 15;
+/** Sideways sway, at half the vertical frequency, so the path is a slither rather than a pure up/down wave. */
+const SNAKE_AMP_X_PX = 7;
+const SNAKE_SPEED_HZ = 0.62;
+/** Radians of phase between neighboring characters — the wavelength of the body, in letters. */
+const SNAKE_PHASE_PER_CHAR = 0.95;
+/** Nominal character advance in px, used to convert the curve's slope into a tangent angle. */
+const SNAKE_CHAR_ADVANCE_PX = 11;
+/** How much of the tangent angle to actually apply. Full tangent is too steep to stay readable. */
+const SNAKE_TANGENT_FRAC = 0.75;
+
+// --- `text-fx="slot"`: each character is a slot-machine reel spinning
+// about the X axis. Reels decelerate into a whole number of turns (so
+// they always land face-on, never stopped edge-on and invisible), stop
+// left to right, hold the result for a beat, then spin up again. Turn
+// count and stagger are re-rolled per character per cycle, so the reels
+// don't fall into lockstep.
+const SLOT_PERIOD_SEC = 3.4;
+/** When the first reel comes to rest, and how much later each subsequent one does. */
+const SLOT_FIRST_STOP_SEC = 1.1;
+const SLOT_STAGGER_SEC = 0.22;
+/** How long the reels stay stopped before the next cycle spins them up. */
+const SLOT_HOLD_SEC = 0.7;
+const SLOT_MIN_TURNS = 3;
+const SLOT_MAX_TURNS = 9;
+/** Perspective distance for the reels' `rotateX`, in px. Shorter = more dramatic foreshortening. */
+const SLOT_PERSPECTIVE_PX = 260;
+
 /** Cheap, deterministic, seed -> [0, 1) pseudo-random hash (no RNG dependency needed for decorative jitter). */
 function pseudoRandom(seed: number): number {
   const x = Math.sin(seed * 12.9898) * 43758.5453;
@@ -113,7 +156,7 @@ function explodeScatterAmount(t: number): number {
   return 0; // resting, fully assembled
 }
 
-interface ExplodeChar {
+interface FxChar {
   el: HTMLSpanElement;
   /** Position within the label, used (with the current cycle number) to
    * seed that character's direction/distance/rotation for each burst —
@@ -209,14 +252,23 @@ span[part="label"] {
   display: inline-block;
   white-space: pre;
 }
-/* The slot itself is hidden (or shown) via inline "display" set from
+/* The slot itself is hidden (or shown) via inline "visibility" set from
    JS (see syncLabelMode()) — so the real text and the animated
    character layer are never both visible/hidden at once. This rule just
-   positions the character layer once it's shown. */
-:host([text-fx="explode"]) .label-fx {
+   positions the character layer once it's shown, for every mode that
+   animates characters individually (see PER_CHAR_FX). */
+:host([text-fx="explode"]) .label-fx,
+:host([text-fx="snake"]) .label-fx,
+:host([text-fx="slot"]) .label-fx {
   display: inline-block;
   position: absolute;
   inset: 0;
+}
+/* Slot-machine reels rotate about X; without a 3D transform style the
+   foreshortening reads as a flat vertical squash instead of a reel. */
+:host([text-fx="slot"]) .label-fx .ch {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
 }
 `;
 
@@ -290,7 +342,7 @@ export class UselessButtonElement extends HTMLElement {
   private spinCycleIndex = 0;
   private spinCyclePeriodSec = (SPIN_CYCLE_MIN_SEC + SPIN_CYCLE_MAX_SEC) / 2;
   private spinCycleScaleAmp = (SPIN_SCALE_AMP_MIN + SPIN_SCALE_AMP_MAX) / 2;
-  private explodeChars: ExplodeChar[] = [];
+  private fxChars: FxChar[] = [];
 
   constructor() {
     super();
@@ -570,12 +622,13 @@ export class UselessButtonElement extends HTMLElement {
   // ---- label text effects ----
 
   private onSlotChange = (): void => {
-    if (this.textFx === "explode") this.rebuildExplodeChars();
+    if (PER_CHAR_FX.has(this.textFx)) this.rebuildFxChars();
   };
 
   /**
    * Keeps the real slotted text and the animated `.label-fx` character
-   * layer mutually exclusive for `text-fx="explode"`.
+   * layer mutually exclusive for every per-character mode (see
+   * `PER_CHAR_FX`).
    *
    * Uses `visibility: hidden`, not `display: none`. Both fully remove
    * the slot from rendering (and from accessible-name computation —
@@ -593,9 +646,9 @@ export class UselessButtonElement extends HTMLElement {
    */
   private syncLabelMode(): void {
     const mode = this.textFx;
-    if (mode === "explode") {
+    if (PER_CHAR_FX.has(mode)) {
       this.slotEl.style.visibility = "hidden";
-      this.rebuildExplodeChars();
+      this.rebuildFxChars();
       // The real text is now hidden and the animated character layer
       // is `aria-hidden` (it's a visual-only stand-in, not a second
       // copy of the text) — on their own, neither contributes to the
@@ -606,15 +659,15 @@ export class UselessButtonElement extends HTMLElement {
     } else {
       this.slotEl.style.visibility = "";
       this.labelFxEl.textContent = "";
-      this.explodeChars = [];
+      this.fxChars = [];
       this.buttonEl.removeAttribute("aria-label");
     }
   }
 
-  /** Rebuilds the per-character spans used by `text-fx="explode"` from the host's current (light-DOM) text content. */
-  private rebuildExplodeChars(): void {
+  /** Rebuilds the per-character spans used by the `PER_CHAR_FX` modes from the host's current (light-DOM) text content. */
+  private rebuildFxChars(): void {
     this.labelFxEl.textContent = "";
-    this.explodeChars = [];
+    this.fxChars = [];
     const text = this.textContent ?? "";
     let i = 0;
     for (const ch of Array.from(text)) {
@@ -622,7 +675,7 @@ export class UselessButtonElement extends HTMLElement {
       span.className = "ch";
       span.textContent = ch === " " ? " " : ch;
       this.labelFxEl.appendChild(span);
-      this.explodeChars.push({ el: span, index: i, stagger: i * EXPLODE_STAGGER_SEC });
+      this.fxChars.push({ el: span, index: i, stagger: i * EXPLODE_STAGGER_SEC });
       i++;
     }
   }
@@ -636,7 +689,7 @@ export class UselessButtonElement extends HTMLElement {
     this.spinCyclePeriodSec = (SPIN_CYCLE_MIN_SEC + SPIN_CYCLE_MAX_SEC) / 2;
     this.spinCycleScaleAmp = (SPIN_SCALE_AMP_MIN + SPIN_SCALE_AMP_MAX) / 2;
     this.labelEl.style.transform = "";
-    for (const ch of this.explodeChars) {
+    for (const ch of this.fxChars) {
       ch.el.style.transform = "";
       ch.el.style.opacity = "";
     }
@@ -694,13 +747,77 @@ export class UselessButtonElement extends HTMLElement {
       return;
     }
 
+    if (mode === "snake") {
+      // One travelling wave, sampled once per character at its own phase.
+      // Because the phase offset is per *index*, the crest moves along
+      // the word instead of every letter bobbing together — and each
+      // character is turned to the curve's local tangent, which is what
+      // makes the row of letters read as a single body following a path.
+      const phaseBase = this.textFxTime * SNAKE_SPEED_HZ * Math.PI * 2;
+      for (const ch of this.fxChars) {
+        const p = phaseBase - ch.index * SNAKE_PHASE_PER_CHAR;
+        const ty = Math.sin(p) * SNAKE_AMP_Y_PX;
+        const tx = Math.sin(p * 0.5) * SNAKE_AMP_X_PX;
+
+        // d(ty)/d(index): the curve's slope in px per character, turned
+        // into an angle using a nominal character advance.
+        const slope = (-SNAKE_AMP_Y_PX * SNAKE_PHASE_PER_CHAR * Math.cos(p)) / SNAKE_CHAR_ADVANCE_PX;
+        const tangentDeg = Math.atan(slope) * (180 / Math.PI) * SNAKE_TANGENT_FRAC;
+
+        ch.el.style.transform = `translate(${tx}px, ${ty}px) rotate(${tangentDeg}deg)`;
+        ch.el.style.opacity = "";
+      }
+      return;
+    }
+
+    if (mode === "slot") {
+      // Each character is a reel. Within a cycle it decelerates (ease-out
+      // cubic) through a whole number of turns and therefore always comes
+      // to rest face-on, never stopped edge-on and invisible. Reels stop
+      // left to right, hold, then the next cycle spins them all up again.
+      for (const ch of this.fxChars) {
+        const cyclePos = this.textFxTime / SLOT_PERIOD_SEC;
+        const cycleIndex = Math.floor(cyclePos);
+        const localSec = (cyclePos - cycleIndex) * SLOT_PERIOD_SEC;
+
+        // Re-rolled per character per cycle so the reels don't settle
+        // into a fixed pattern.
+        const seed = ch.index * 61.3 + cycleIndex * 157.1;
+        const turns =
+          SLOT_MIN_TURNS + Math.floor(pseudoRandom(seed + 1) * (SLOT_MAX_TURNS - SLOT_MIN_TURNS + 1));
+        const stopAt = SLOT_FIRST_STOP_SEC + ch.index * SLOT_STAGGER_SEC;
+
+        let angleDeg: number;
+        if (localSec >= stopAt + SLOT_HOLD_SEC) {
+          // Past the hold: spin straight back up for the next cycle, so
+          // the reels are already moving when the cycle rolls over
+          // instead of twitching from a standstill.
+          const spinUp = localSec - (stopAt + SLOT_HOLD_SEC);
+          angleDeg = spinUp * 360 * (1.5 + pseudoRandom(seed + 2));
+        } else if (localSec >= stopAt) {
+          angleDeg = 0; // stopped, face-on
+        } else {
+          const progress = localSec / stopAt;
+          const eased = 1 - (1 - progress) ** 3;
+          angleDeg = (1 - eased) * turns * 360;
+        }
+
+        // Reel faces darken as they turn away from the viewer, the way a
+        // physical drum would.
+        const facing = Math.abs(Math.cos((angleDeg * Math.PI) / 180));
+        ch.el.style.transform = `perspective(${SLOT_PERSPECTIVE_PX}px) rotateX(${angleDeg}deg)`;
+        ch.el.style.opacity = String(0.45 + 0.55 * facing);
+      }
+      return;
+    }
+
     // mode === "explode": each character bursts out and snaps back,
     // staggered slightly per character. Direction, distance, rotation
     // and peak scale are re-derived every cycle from a hash of (this
     // character's position, this cycle's number) — not stored once and
     // reused — so the same word bursts a different way each time rather
     // than repeating an identical pattern on every loop.
-    for (const ch of this.explodeChars) {
+    for (const ch of this.fxChars) {
       const cyclePos = (this.textFxTime + ch.stagger) / EXPLODE_PERIOD_SEC;
       const cycleIndex = Math.floor(cyclePos);
       const localT = cyclePos - cycleIndex;

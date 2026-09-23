@@ -64,6 +64,47 @@ const MAX_RENDER_DIST: f32 = 24.0;
 const RAY_STEP_PX: usize = 2;
 const MAX_DT: f32 = 1.0 / 20.0;
 
+// --- Surface texturing.
+//
+// Everything below is procedural: sampled per pixel from the surface
+// coordinate the ray landed on, never from a stored bitmap. A raycaster
+// gets its whole sense of depth and speed from surface detail sliding
+// past, and flat-filled walls/floor/ceiling read as three colored bars
+// no matter how good the geometry underneath is.
+
+/// Bricks per cell across a wall face, and down it. Wider than tall, like
+/// actual brick.
+const BRICKS_ACROSS: f32 = 3.0;
+const BRICKS_DOWN: f32 = 5.0;
+/// Mortar gap as a fraction of one brick, across and down.
+const MORTAR_ACROSS: f32 = 0.08;
+const MORTAR_DOWN: f32 = 0.12;
+
+/// Hue ranges for the two wall orientations. Seen from above, a wall
+/// running north-south (hit by a ray stepping in X) is warm/red, and one
+/// running east-west (hit stepping in Y) is cool/blue — so the two axes
+/// of the maze stay tellable apart at a glance, even mid-corner.
+const HUE_NS_WALL: (f32, f32) = (348.0, 28.0); // wraps through 0
+const HUE_EW_WALL: (f32, f32) = (196.0, 238.0);
+
+/// Tiles per cell on the floor, and on the ceiling — the ceiling's are
+/// deliberately the larger of the two (fewer per cell, so each tile
+/// covers twice the ground).
+///
+/// Both are far denser than "one tile per corridor" would suggest,
+/// because of how little ground is actually on screen: at this
+/// projection the visible floor only spans roughly 0.6 to 3 cells out
+/// from the camera, so a tile a whole cell across fills the entire strip
+/// with its own interior and the floor reads as a flat gray band.
+const FLOOR_TILES_PER_CELL: f32 = 6.0;
+const CEILING_TILES_PER_CELL: f32 = 3.0;
+/// Grout line width, as a fraction of one tile.
+const TILE_GROUT: f32 = 0.1;
+/// Distance, in cells, at which floor/ceiling have faded all the way out
+/// to darkness. Without this the tile grid keeps its contrast to the
+/// horizon and the whole thing flattens out.
+const FLOOR_FOG_DIST: f32 = 9.0;
+
 pub struct Dungeon {
     grid_w: usize,
     grid_h: usize,
@@ -113,6 +154,13 @@ struct RayHit {
     /// Wolfenstein-style trick that makes corners read clearly even when
     /// two adjacent walls happen to share a hue.
     stepped_y: bool,
+    /// Where along the face the ray landed, in `[0, 1)` — the horizontal
+    /// texture coordinate for the brick pattern.
+    wall_u: f32,
+    /// Unit ray direction, kept so floor/ceiling casting for this column
+    /// doesn't have to recompute the sin/cos.
+    dir_x: f32,
+    dir_y: f32,
 }
 
 fn wrap_angle(a: f32) -> f32 {
@@ -233,9 +281,67 @@ fn label_wall_runs(
         }
     }
 
-    let h_run_hue: Vec<f32> = (0..h_count).map(|_| rng.range_f32(0.0, 360.0)).collect();
-    let v_run_hue: Vec<f32> = (0..v_count).map(|_| rng.range_f32(0.0, 360.0)).collect();
+    // Each run draws its hue from the family for its orientation (see
+    // `HUE_NS_WALL` / `HUE_EW_WALL`), so runs stay individually tellable
+    // apart while the axis they belong to is still obvious at a glance.
+    // `h_run` is read on a Y-step hit, which is an east-west wall.
+    let h_run_hue: Vec<f32> =
+        (0..h_count).map(|_| rng.range_f32(HUE_EW_WALL.0, HUE_EW_WALL.1)).collect();
+    let v_run_hue: Vec<f32> =
+        (0..v_count).map(|_| rng.range_f32(HUE_NS_WALL.0, HUE_NS_WALL.1 + 360.0) % 360.0).collect();
     (h_run_id, v_run_id, h_run_hue, v_run_hue)
+}
+
+/// Cheap deterministic hash of a pair of integers to `[0, 1)`. Used to
+/// give individual bricks and tiles their own slight shade variation —
+/// without it, a brick wall is just a regular grid of one flat color and
+/// reads as wallpaper rather than stonework.
+fn hash01(a: i32, b: i32) -> f32 {
+    let mut h = (a as u32).wrapping_mul(0x9E37_79B9) ^ (b as u32).wrapping_mul(0x85EB_CA6B);
+    h ^= h >> 13;
+    h = h.wrapping_mul(0xC2B2_AE35);
+    h ^= h >> 16;
+    (h >> 8) as f32 / (1u32 << 24) as f32
+}
+
+/// Brick pattern sampled at `(u, v)` on a wall face, both in `[0, 1)`.
+/// Returns a multiplier on the wall's base value: mortar comes out dark,
+/// brick faces near 1 with a little per-brick variation.
+fn brick_shade(u: f32, v: f32) -> f32 {
+    let ty = v * BRICKS_DOWN;
+    let row = ty.floor();
+    // Offset every other course by half a brick — running bond, the
+    // reason a brick wall doesn't look like a plain grid.
+    let tx = u * BRICKS_ACROSS + if (row as i32).rem_euclid(2) == 1 { 0.5 } else { 0.0 };
+    let fx = tx - tx.floor();
+    let fy = ty - row;
+
+    if fx < MORTAR_ACROSS || fy < MORTAR_DOWN {
+        return 0.55; // mortar course
+    }
+    // Per-brick variation, plus a soft bevel towards the mortar so each
+    // brick reads as a raised block rather than a flat rectangle.
+    let variation = 0.88 + hash01(tx.floor() as i32, row as i32) * 0.24;
+    let edge = ((fx - MORTAR_ACROSS) / 0.10).min((fy - MORTAR_DOWN) / 0.14).min(1.0);
+    variation * (0.82 + 0.18 * edge)
+}
+
+/// Square-tile pattern for floor and ceiling, sampled at a world position
+/// in cell units. `tiles_per_cell` is what makes the ceiling's tiles the
+/// larger of the two (fewer of them per cell).
+fn tile_shade(wx: f32, wy: f32, tiles_per_cell: f32) -> f32 {
+    let tx = wx * tiles_per_cell;
+    let ty = wy * tiles_per_cell;
+    let (ix, iy) = (tx.floor(), ty.floor());
+    let (fx, fy) = (tx - ix, ty - iy);
+
+    if fx < TILE_GROUT || fy < TILE_GROUT {
+        return 0.42; // grout line
+    }
+    // Checkerboard, so the tiling is still legible in the distance where
+    // the grout lines are thinner than a pixel and drop out entirely.
+    let checker = if (ix as i32 + iy as i32).rem_euclid(2) == 0 { 1.0 } else { 0.62 };
+    checker * (0.9 + hash01(ix as i32, iy as i32) * 0.2)
 }
 
 impl Dungeon {
@@ -346,7 +452,14 @@ impl Dungeon {
                 break;
             }
         }
-        RayHit { dist: dist.min(MAX_RENDER_DIST), cell_x: map_x, cell_y: map_y, stepped_y }
+
+        let dist = dist.min(MAX_RENDER_DIST);
+        // Where the ray landed along the face: the coordinate that runs
+        // *along* the wall, i.e. the axis we did not step across to hit it.
+        let along = if stepped_y { self.cam_x + dist * dir_x } else { self.cam_y + dist * dir_y };
+        let wall_u = along - along.floor();
+
+        RayHit { dist, cell_x: map_x, cell_y: map_y, stepped_y, wall_u, dir_x, dir_y }
     }
 
     /// Look up the color for the wall face a ray hit: which *run* it
@@ -437,15 +550,15 @@ impl Sim for Dungeon {
     }
 
     fn render(&mut self, frame: &mut Frame, theme: &Theme) {
-        let _ = theme; // ceiling/wall/floor are now their own dungeon-y palette, not theme-derived
+        let _ = theme; // the dungeon brings its own stone palette, not the host page's
         let w = frame.w;
         let h = frame.h;
         let half_h = h as f32 * 0.5;
         let fov = FOV_DEG.to_radians();
-        // A cool, desaturated slate tone -- reads as "stone ceiling"
-        // regardless of the host page's theme colors.
-        let ceiling = Rgb::from_hsv(224.0, 0.12, 0.58);
-        let floor = Rgb::from_hsv(224.0, 0.1, 0.22);
+        // Cool slate for the masonry overhead and underfoot -- neutral
+        // enough that the red/blue walls stay the thing you read.
+        const CEILING_HUE: f32 = 224.0;
+        const FLOOR_HUE: f32 = 214.0;
 
         let mut col = 0usize;
         while col < w {
@@ -454,28 +567,80 @@ impl Sim for Dungeon {
             let hit = self.cast_ray(ray_angle);
             // Fisheye correction: project the ray's distance onto the
             // camera's forward axis rather than using the raw radial
-            // distance, so straight walls render straight.
-            let corrected = (hit.dist * (ray_angle - self.view_angle).cos()).max(0.05);
+            // distance, so straight walls render straight. The same
+            // cosine un-does the distortion for floor/ceiling casting
+            // below, hence keeping it around.
+            let angle_cos = (ray_angle - self.view_angle).cos().max(1e-3);
+            let corrected = (hit.dist * angle_cos).max(0.05);
 
             let wall_h = (h as f32 * WALL_HEIGHT_SCALE / corrected).min(h as f32 * 6.0);
             let y0 = (half_h - wall_h * 0.5).max(0.0);
             let y1 = (half_h + wall_h * 0.5).min(h as f32);
+            // Unclamped wall extent, needed to work out which part of the
+            // wall a visible row corresponds to when the slice runs off
+            // the top and bottom of the canvas.
+            let wall_top = half_h - wall_h * 0.5;
 
-            // Straight runs of wall share one hue and corners switch hue
-            // (see `label_wall_runs`); brightness still falls off with
-            // distance, and one face orientation is darkened a little
-            // relative to the other so a corner is never invisible even
-            // on the rare occasion its two runs land on a similar hue.
+            // Straight runs of wall share one hue, and the two
+            // orientations draw from opposite ends of the spectrum (see
+            // `label_wall_runs`), so a corner is always a visible break.
             let hue = self.hue_at(hit.cell_x, hit.cell_y, hit.stepped_y);
             let dist_t = (corrected / MAX_RENDER_DIST).clamp(0.0, 1.0);
-            let side_mult = if hit.stepped_y { 0.72 } else { 1.0 };
-            let value = (0.75 - dist_t * 0.55) * side_mult;
-            let wall_color = Rgb::from_hsv(hue, 0.55, value.clamp(0.05, 1.0));
+            // North-south faces stay a touch brighter than east-west
+            // ones, the classic raycaster trick for reading corners.
+            let side_mult = if hit.stepped_y { 0.78 } else { 1.0 };
+            let base_value = (0.86 - dist_t * 0.62) * side_mult;
 
             let col_w = (RAY_STEP_PX).min(w - col) as f32;
-            frame.rect(col as f32, 0.0, col_w, y0, ceiling, 1.0);
-            frame.rect(col as f32, y0, col_w, (y1 - y0).max(0.0), wall_color, 1.0);
-            frame.rect(col as f32, y1, col_w, (h as f32 - y1).max(0.0), floor, 1.0);
+            let col_x = col as f32;
+
+            // --- Wall: brick, sampled per row down the slice.
+            let inv_wall_h = if wall_h > 0.0 { 1.0 / wall_h } else { 0.0 };
+            let mut y = y0 as usize;
+            let y_end = y1.ceil() as usize;
+            while y < y_end && y < h {
+                let v = ((y as f32 + 0.5) - wall_top) * inv_wall_h;
+                let shade = brick_shade(hit.wall_u, v.clamp(0.0, 0.999));
+                let color =
+                    Rgb::from_hsv(hue, 0.62, (base_value * shade).clamp(0.03, 1.0));
+                frame.rect(col_x, y as f32, col_w, 1.0, color, 1.0);
+                y += 1;
+            }
+
+            // --- Floor and ceiling: cast each row back out to the world
+            // position it shows, then tile that position. Rows are
+            // independent, so this is just the wall projection solved the
+            // other way round: a row `p` px below the horizon is looking
+            // at ground `(h * WALL_HEIGHT_SCALE / 2) / p` cells away.
+            let row_scale = h as f32 * WALL_HEIGHT_SCALE * 0.5;
+            for y in 0..(y0 as usize).min(h) {
+                let p = half_h - (y as f32 + 0.5);
+                if p <= 0.0 {
+                    continue;
+                }
+                let dist = row_scale / p / angle_cos;
+                let wx = self.cam_x + hit.dir_x * dist;
+                let wy = self.cam_y + hit.dir_y * dist;
+                let fog = 1.0 - (dist / FLOOR_FOG_DIST).clamp(0.0, 1.0);
+                let shade = tile_shade(wx, wy, CEILING_TILES_PER_CELL);
+                let color =
+                    Rgb::from_hsv(CEILING_HUE, 0.14, (0.66 * shade * fog).clamp(0.03, 1.0));
+                frame.rect(col_x, y as f32, col_w, 1.0, color, 1.0);
+            }
+            for y in (y1.ceil() as usize)..h {
+                let p = (y as f32 + 0.5) - half_h;
+                if p <= 0.0 {
+                    continue;
+                }
+                let dist = row_scale / p / angle_cos;
+                let wx = self.cam_x + hit.dir_x * dist;
+                let wy = self.cam_y + hit.dir_y * dist;
+                let fog = 1.0 - (dist / FLOOR_FOG_DIST).clamp(0.0, 1.0);
+                let shade = tile_shade(wx, wy, FLOOR_TILES_PER_CELL);
+                let color =
+                    Rgb::from_hsv(FLOOR_HUE, 0.18, (0.46 * shade * fog).clamp(0.03, 1.0));
+                frame.rect(col_x, y as f32, col_w, 1.0, color, 1.0);
+            }
 
             col += RAY_STEP_PX;
         }
@@ -664,6 +829,99 @@ mod tests {
     }
 
     #[test]
+    fn brick_pattern_has_mortar_courses_and_offset_rows() {
+        // Mortar runs along the top edge of every course.
+        assert!(brick_shade(0.5, 0.001) < 0.6, "expected a mortar line at the top of a course");
+        // Brick faces are brighter than mortar.
+        let face = brick_shade(0.5, 0.5);
+        assert!(face > 0.7, "brick face came out as dark as mortar: {face}");
+
+        // Running bond: consecutive courses are offset by half a brick, so
+        // the vertical mortar joint in one course lands mid-brick in the
+        // next. Sample the same `u` one course apart and require they
+        // aren't both mortar.
+        let u = 1.0 / BRICKS_ACROSS * 0.5; // a vertical joint position in even courses
+        let v_even = 0.5 / BRICKS_DOWN;
+        let v_odd = 1.5 / BRICKS_DOWN;
+        assert_ne!(
+            brick_shade(u, v_even) < 0.6,
+            brick_shade(u, v_odd) < 0.6,
+            "courses are not offset -- joints line up vertically"
+        );
+    }
+
+    #[test]
+    fn wall_hues_split_by_orientation() {
+        // North-south walls (hit stepping in X) read warm, east-west ones
+        // cool, so the two axes of the maze stay tellable apart.
+        let mut rng = Rng::new(21);
+        let walls = generate_maze(GRID_W, GRID_H, &mut rng);
+        let (_h_id, _v_id, h_hue, v_hue) = label_wall_runs(&walls, GRID_W, GRID_H, &mut rng);
+
+        for hue in &v_hue {
+            let warm = *hue >= HUE_NS_WALL.0 || *hue <= HUE_NS_WALL.1;
+            assert!(warm, "north-south wall hue {hue} is outside the warm range");
+        }
+        for hue in &h_hue {
+            assert!(
+                *hue >= HUE_EW_WALL.0 && *hue <= HUE_EW_WALL.1,
+                "east-west wall hue {hue} is outside the cool range"
+            );
+        }
+    }
+
+    #[test]
+    fn ceiling_tiles_are_larger_than_floor_tiles() {
+        assert!(
+            CEILING_TILES_PER_CELL < FLOOR_TILES_PER_CELL,
+            "fewer tiles per cell means bigger tiles -- the ceiling's should be the bigger ones"
+        );
+        // Both patterns must actually vary across a surface, or they're
+        // just a flat fill with extra steps.
+        let sample = |tiles: f32| {
+            let mut seen: Vec<f32> = Vec::new();
+            for i in 0..40 {
+                let p = i as f32 * 0.05;
+                let s = tile_shade(p, p * 0.5, tiles);
+                if !seen.iter().any(|v| (v - s).abs() < 1e-6) {
+                    seen.push(s);
+                }
+            }
+            seen.len()
+        };
+        assert!(sample(FLOOR_TILES_PER_CELL) > 3, "floor tiling produced almost no variation");
+        assert!(sample(CEILING_TILES_PER_CELL) > 3, "ceiling tiling produced almost no variation");
+    }
+
+    #[test]
+    fn render_leaves_no_pixel_unpainted() {
+        // Floor/ceiling casting replaced the old flat rects, so every row
+        // is now written by one of three separate loops. A gap between
+        // them would leave stale pixels from the previous frame on screen,
+        // which is exactly the kind of thing that only shows up as a
+        // smear while moving.
+        let mut rng = Rng::new(22);
+        let mut sim = make(320, 96, 22);
+        let mut frame = Frame::new(320, 96);
+        let theme = Theme::default();
+
+        // Paint something unmistakable first; anything left over after a
+        // render is a hole.
+        frame.fill(Rgb::new(255, 0, 255));
+        for _ in 0..200 {
+            sim.step(1.0 / 60.0, &Input::default(), &mut rng);
+        }
+        sim.render(&mut frame, &theme);
+
+        for (i, px) in frame.pixels.chunks_exact(4).enumerate() {
+            assert!(
+                !(px[0] == 255 && px[1] == 0 && px[2] == 255),
+                "pixel {i} was never painted by render"
+            );
+        }
+    }
+
+    #[test]
     fn maze_is_large_enough_to_actually_roam() {
         // The point of the grid size is range: the autopilot should cover
         // a lot of distinct ground before it starts retracing itself.
@@ -770,3 +1028,4 @@ mod tests {
         assert!(moved_between_checkpoints, "camera appears frozen: {checkpoints:?}");
     }
 }
+

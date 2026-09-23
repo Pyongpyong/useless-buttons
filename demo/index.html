@@ -150,6 +150,8 @@
         <option value="spin">spin</option>
         <option value="skew">skew</option>
         <option value="explode">explode</option>
+        <option value="snake">snake</option>
+        <option value="slot">slot</option>
       </select>
     </label>
   </div>
@@ -182,8 +184,18 @@
     </div>
     <div class="card">
       <h2>dungeon (maze explorer)</h2>
-      <p>A raycast first-person view (DOOM-style) that wanders a procedurally-carved maze forever, on autopilot.</p>
+      <p>A raycast first-person view (DOOM-style) wandering a maze forever. Brick walls, warm where they run north-south and cool where they run east-west, over tiled floor and ceiling.</p>
       <useless-button variant="dungeon" seed="10">Dungeon crawl</useless-button>
+    </div>
+    <div class="card">
+      <h2>starry (Starry Night)</h2>
+      <p>Van Gogh-ish spirals turning over a night sky. Hover to speed up the ones near the cursor, click to send the whole sky the other way.</p>
+      <useless-button variant="starry" seed="11">Starry night</useless-button>
+    </div>
+    <div class="card">
+      <h2>voronoi (moving cells)</h2>
+      <p>A Voronoi diagram over drifting points. Hover and the cursor becomes a cell of its own; click to re-roll every color.</p>
+      <useless-button variant="voronoi" seed="12">Voronoi cells</useless-button>
     </div>
   </div>
 
@@ -209,6 +221,16 @@
       <h2>text-fx="explode"</h2>
       <p>Letters scatter like pixels, then snap back together.</p>
       <useless-button variant="life" seed="8" text-fx="explode">Boom text</useless-button>
+    </div>
+    <div class="card">
+      <h2>text-fx="snake"</h2>
+      <p>Letters slither along a travelling wave, each turned to follow the curve.</p>
+      <useless-button variant="starry" seed="13" text-fx="snake">Slithering</useless-button>
+    </div>
+    <div class="card">
+      <h2>text-fx="slot"</h2>
+      <p>Each letter is a reel spinning on its X axis, stopping left to right like a slot machine.</p>
+      <useless-button variant="voronoi" seed="14" text-fx="slot">Jackpot</useless-button>
     </div>
   </div>
 

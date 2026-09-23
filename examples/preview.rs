@@ -29,6 +29,8 @@ fn main() {
         Variant::Fractal,
         Variant::Bounce,
         Variant::Dungeon,
+        Variant::Starry,
+        Variant::Voronoi,
     ] {
         render_variant(variant, &out_dir);
     }
