@@ -370,29 +370,38 @@ mod tests {
 
     #[test]
     fn cursor_creates_a_low_density_hole() {
-        let mut rng = Rng::new(3);
-        let mut sim = make(200, 200, 3);
+        // Flocking is chaotic: one frame from one seed can contain a
+        // passing cluster, and tiny floating-point differences can change
+        // its trajectory across platforms. Compare sustained occupancy to
+        // an idle control over multiple seeds instead of a uniform model.
         let center = (100.0f32, 100.0f32);
-        let input = Input { x: center.0, y: center.1, hover: true, down: false, clicks: 0 };
-        for _ in 0..500 {
-            sim.step(1.0 / 60.0, &input, &mut rng);
+        let hover = Input { x: center.0, y: center.1, hover: true, down: false, clicks: 0 };
+        let idle = Input::default();
+        let near = |sim: &Swarm| sim.boids.iter().filter(|b| {
+            let dx = b.x - center.0;
+            let dy = b.y - center.1;
+            dx * dx + dy * dy < 20.0 * 20.0
+        }).count();
+        let mut hover_total = 0;
+        let mut idle_total = 0;
+        for seed in [3, 11, 42] {
+            let mut hovering = make(200, 200, seed);
+            let mut control = make(200, 200, seed);
+            let mut hover_rng = Rng::new(seed);
+            let mut idle_rng = Rng::new(seed);
+            for frame in 0..900 {
+                hovering.step(1.0 / 60.0, &hover, &mut hover_rng);
+                control.step(1.0 / 60.0, &idle, &mut idle_rng);
+                if frame >= 300 {
+                    hover_total += near(&hovering);
+                    idle_total += near(&control);
+                }
+            }
         }
-        let total = sim.positions().len() as f32;
-        let radius = 20.0f32;
-        let near = sim
-            .positions()
-            .iter()
-            .filter(|(x, y)| {
-                let dx = x - center.0;
-                let dy = y - center.1;
-                (dx * dx + dy * dy).sqrt() < radius
-            })
-            .count() as f32;
-        let area_ratio = (std::f32::consts::PI * radius * radius) / (200.0 * 200.0);
-        let expected_uniform = total * area_ratio;
+        assert!(idle_total > 0, "idle control must occupy the cursor region");
         assert!(
-            near < expected_uniform * 0.5,
-            "expected avoidance hole near cursor: near={near} expected_uniform={expected_uniform}"
+            hover_total * 2 < idle_total,
+            "expected sustained avoidance: hover_total={hover_total}, idle_total={idle_total}"
         );
     }
 
