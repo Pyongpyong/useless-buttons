@@ -290,7 +290,7 @@ mod tests {
     const DT: f32 = 1.0 / 60.0;
 
     fn click() -> Input {
-        Input { clicks: 1, ..Input::default() }
+        Input::tap()
     }
 
     #[test]

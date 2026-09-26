@@ -411,8 +411,6 @@ export class UselessButtonElement extends HTMLElement {
     );
 
     this.buttonEl.addEventListener("pointerdown", this.onPointerDown);
-    this.buttonEl.addEventListener("click", this.onClick);
-    this.buttonEl.addEventListener("keydown", this.onKeyDown);
     // Registered on the host itself, before any page code can add its
     // own listeners, so it runs first — see `onHostClickCapture`.
     this.addEventListener("click", this.onHostClickCapture, true);
@@ -659,19 +657,6 @@ export class UselessButtonElement extends HTMLElement {
   }
 
   /**
-   * Game input is taken on press (pointerdown / keydown) rather than on
-   * `click`, which only fires on release — too late for a flap or a
-   * jump to feel responsive. `left` marks a press on the left half of
-   * the button, which games that move both ways (`crossy`) read as
-   * "go left"; every other game treats both halves the same.
-   */
-  private sendGameInput(left = false): void {
-    if (!this.core || this.disabled) return;
-    if (left) this.core.click_left();
-    else this.core.click();
-  }
-
-  /**
    * Swallows clicks while a game is locked — and also the click that
    * ends the very press which cleared it, since that press began before
    * the game was won. A capture listener on the host runs ahead of every
@@ -685,20 +670,6 @@ export class UselessButtonElement extends HTMLElement {
     if (!swallow) return;
     ev.stopImmediatePropagation();
     ev.preventDefault();
-  };
-
-  private onKeyDown = (ev: KeyboardEvent): void => {
-    // Arrow keys are the keyboard's two halves of the button. They never
-    // activate a <button>, so there's no click to swallow afterwards.
-    if (ev.key === "ArrowLeft" || ev.key === "ArrowRight") {
-      if (!this.gameLocked) return;
-      ev.preventDefault();
-      if (!ev.repeat) this.sendGameInput(ev.key === "ArrowLeft");
-      return;
-    }
-    if (ev.key !== "Enter" && ev.key !== " ") return;
-    this.pressWhileLocked = this.gameLocked;
-    if (this.gameLocked && !ev.repeat) this.sendGameInput();
   };
 
   private applyTheme(): void {
@@ -1005,20 +976,28 @@ export class UselessButtonElement extends HTMLElement {
     }
   }
 
+  /**
+   * The only game input: a pointer press on the button. It's taken on
+   * pointerdown rather than `click`, which only fires on release — too
+   * late for a flap or a jump to feel responsive — and it carries where
+   * the press landed, as fractions of the button, for games that aim
+   * (`django`, `balloon`, `memory`) or steer (`crossy`, `dodge`). The
+   * keyboard never plays a game: Enter/Space on a locked button do
+   * nothing, since its clicks are swallowed. Visual variants ignore
+   * presses; a cleared game celebrates them.
+   */
   private onPointerDown = (ev: PointerEvent): void => {
     this.pressWhileLocked = this.gameLocked;
-    if (!this.gameLocked || ev.button !== 0) return;
-    const rect = this.buttonEl.getBoundingClientRect();
-    this.sendGameInput(ev.clientX < rect.left + rect.width / 2);
-  };
-
-  /** Visual variants don't react to clicks; a cleared game celebrates. */
-  private onClick = (): void => {
-    if (!this.core || !this.core.is_game()) return;
-    this.core.click();
-    if (this.prefersReducedMotion()) {
+    if (!this.core || this.disabled || !this.core.is_game() || ev.button !== 0) return;
+    const rect = this.canvas.getBoundingClientRect();
+    this.core.press(
+      (ev.clientX - rect.left) / Math.max(1, rect.width),
+      (ev.clientY - rect.top) / Math.max(1, rect.height),
+    );
+    if (!this.gameLocked && this.prefersReducedMotion()) {
       // No rAF loop is running in reduced-motion mode: advance exactly
-      // one step so a click still visibly does something.
+      // one step so a press on a (necessarily unlocked) game still
+      // visibly does something.
       this.applyTheme();
       this.core.tick(1 / 60);
       this.paint();
