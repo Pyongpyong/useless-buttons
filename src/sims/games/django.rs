@@ -1,7 +1,7 @@
 //! Django: a quick-draw shooting gallery in a western town. Every wave,
 //! 3–5 targets pop up at random spots for a few seconds; shoot them all
-//! (click on them) before time runs out. A six-shooter holds six rounds
-//! per wave, so spraying clicks doesn't work. Ten clean waves clear it.
+//! (click on them) before time runs out. You get exactly one round per
+//! target: a single miss ends the run. Ten clean waves clear it.
 use super::{
     column_from, draw_cleared_flash, draw_game_over, draw_progress, draw_time_bar, sanitize_dt,
     unit, vgradient, Confetti, Phase, GOAL,
@@ -15,7 +15,6 @@ const TARGET_R: f32 = 0.11;
 const HIT_R: f32 = TARGET_R * 1.2;
 const TARGETS_MIN: usize = 3;
 const TARGETS_MAX: usize = 5;
-const AMMO: u32 = 6;
 /// Pause before each wave's targets pop up.
 const READY_SEC: f32 = 0.7;
 const TIME_BASE: f32 = 1.6;
@@ -87,7 +86,7 @@ impl Django {
             targets: Vec::new(),
             wave: Wave::Ready(0.0),
             limit: 0.0,
-            ammo: AMMO,
+            ammo: 0,
             holes: Vec::new(),
             wins: 0,
             phase: Phase::Playing,
@@ -103,7 +102,7 @@ impl Django {
         self.targets.clear();
         self.holes.clear();
         self.wave = Wave::Ready(0.0);
-        self.ammo = AMMO;
+        self.ammo = 0;
         self.wins = 0;
         self.phase = Phase::Playing;
         self.confetti.clear();
@@ -140,13 +139,15 @@ impl Django {
         }
         let shrink = (1.0 - TIME_SHRINK).powi(self.wins as i32);
         self.limit = (TIME_BASE + TIME_PER_TARGET * n as f32) * shrink;
-        self.ammo = AMMO;
+        // One round per target, no spares.
+        self.ammo = n as u32;
         self.wave = Wave::Live(0.0);
     }
 
-    fn shoot(&mut self, x: f32, y: f32) {
+    /// Fire one round. Returns `false` on a miss.
+    fn shoot(&mut self, x: f32, y: f32) -> bool {
         if self.ammo == 0 {
-            return;
+            return true;
         }
         self.ammo -= 1;
         let hit = self
@@ -159,12 +160,16 @@ impl Django {
                 da.total_cmp(&db)
             });
         match hit {
-            Some(t) => t.hit = Some(0.0),
+            Some(t) => {
+                t.hit = Some(0.0);
+                true
+            }
             None => {
                 if self.holes.len() >= 12 {
                     self.holes.remove(0);
                 }
                 self.holes.push((x, y, 0.0));
+                false
             }
         }
     }
@@ -186,7 +191,10 @@ impl Django {
             Wave::Live(t) => {
                 // A press with no position has nowhere to aim, so it doesn't fire.
                 for p in input.presses().iter().filter(|p| p.is_pointed()) {
-                    self.shoot(p.x * self.aspect(), p.y);
+                    if !self.shoot(p.x * self.aspect(), p.y) {
+                        self.phase = Phase::Over(0.0);
+                        return;
+                    }
                 }
                 if self.remaining() == 0 {
                     self.wins += 1;
@@ -326,7 +334,7 @@ impl Sim for Django {
 
         // Rounds left in the cylinder, bottom left.
         let s = (0.035 * u).max(1.5);
-        for i in 0..AMMO {
+        for i in 0..self.targets.len() as u32 {
             let x = 0.05 * u + i as f32 * s * 1.5;
             let y = frame.h as f32 - 0.1 * u;
             let loaded = i < self.ammo;
@@ -400,7 +408,7 @@ mod tests {
     }
 
     #[test]
-    fn six_misses_empty_the_gun_and_end_the_run() {
+    fn a_single_miss_ends_the_run() {
         let mut rng = Rng::new(3);
         let mut sim = Django::new(320, 96, &mut rng);
         while !matches!(sim.wave, Wave::Live(_)) {
@@ -411,9 +419,7 @@ mod tests {
         for t in &mut sim.targets {
             t.x = far;
         }
-        for _ in 0..AMMO {
-            sim.step(DT, &Input::press(0.01, 0.95), &mut rng);
-        }
+        sim.step(DT, &Input::press(0.01, 0.95), &mut rng);
         assert!(matches!(sim.phase, Phase::Over(_)));
     }
 
@@ -425,7 +431,7 @@ mod tests {
             sim.step(DT, &Input::default(), &mut rng);
         }
         sim.step(DT, &Input::tap(), &mut rng);
-        assert_eq!(sim.ammo, AMMO);
+        assert_eq!(sim.ammo, sim.targets.len() as u32);
     }
 
     #[test]
