@@ -10,7 +10,7 @@
 //! natural sloped silhouette instead of a jagged "bar chart" of
 //! independent columns.
 //!
-//! Sand rains in continuously; interaction adds extra grains. Once every
+//! Sand rains in continuously on its own. Once every
 //! cell is occupied, hold the complete pile briefly, then clear it and
 //! start a new pile in the next color.
 
@@ -27,10 +27,6 @@ const STEP_DT: f32 = 1.0 / 60.0;
 const MAX_SUBSTEPS: u32 = 6;
 /// Keep a completely filled pile visible even across multiple substeps.
 const FULL_HOLD_STEPS: u32 = 30;
-/// Extra grains spawned near the cursor per step while pressed, on top of
-/// the autonomous rain below.
-const SPAWN_PER_STEP: u32 = 2;
-const CLICK_BURST: u32 = 40;
 const BAND_COUNT: usize = 4;
 
 /// Autonomous "rain": sand keeps piling up on its own, no interaction
@@ -116,28 +112,7 @@ impl Sand {
         1 + (self.fill_cycle as usize % BAND_COUNT) as u8
     }
 
-    fn spawn_at(&mut self, cx: i64, cy: i64, n: u32, rng: &mut Rng) {
-        let cap = self.cap();
-        for _ in 0..n {
-            if self.count >= cap {
-                return;
-            }
-            let ox = rng.range_i32(-3, 4) as i64;
-            let x = cx + ox;
-            let y = cy;
-            if x < 0 || y < 0 || x as usize >= self.cols || y as usize >= self.rows {
-                continue;
-            }
-            let idx = self.idx(x as usize, y as usize);
-            if self.cells[idx] == 0 {
-                self.cells[idx] = self.band_for_current_cycle();
-                self.count += 1;
-            }
-        }
-    }
-
-    /// Spawns a trickle of sand at random columns along the very top row,
-    /// independent of any pointer interaction.
+    /// Spawns a trickle of sand at random columns along the very top row.
     fn auto_rain(&mut self, rng: &mut Rng) {
         if self.cols == 0 || self.rows == 0 {
             return;
@@ -260,7 +235,7 @@ impl Sim for Sand {
         let _ = rng;
     }
 
-    fn step(&mut self, dt: f32, input: &Input, rng: &mut Rng) {
+    fn step(&mut self, dt: f32, _: &Input, rng: &mut Rng) {
         let dt = if dt.is_finite() { dt.clamp(0.0, 0.5) } else { 0.0 };
         self.acc += dt;
         let mut steps = 0;
@@ -273,15 +248,6 @@ impl Sim for Sand {
         // capacity) build up unbounded backlog.
         if self.acc > STEP_DT * MAX_SUBSTEPS as f32 {
             self.acc = 0.0;
-        }
-
-        let cx = (input.x as i64) / CELL_PX as i64;
-        let cy = (input.y as i64) / CELL_PX as i64;
-        if input.down {
-            self.spawn_at(cx, cy, SPAWN_PER_STEP, rng);
-        }
-        if input.clicks > 0 {
-            self.spawn_at(cx, cy, CLICK_BURST, rng);
         }
     }
 
@@ -332,10 +298,10 @@ mod tests {
     }
 
     #[test]
-    fn never_exceeds_cap_with_rain_and_interaction() {
+    fn never_exceeds_cap_with_rain() {
         let mut rng = Rng::new(1);
         let mut sim = Sand::new(64, 64, &mut rng); // cols=12, rows=12
-        let input = Input { x: 32.0, y: 32.0, hover: true, down: true, clicks: 0 };
+        let input = Input::default();
         let cap = 12 * 12;
 
         let mut max_seen = 0usize;
@@ -376,15 +342,6 @@ mod tests {
             }
         }
         assert!(advanced, "expected the color band to change once the pile reached the top");
-    }
-
-    #[test]
-    fn click_burst_spawns_grains() {
-        let mut rng = Rng::new(2);
-        let mut sim = Sand::new(64, 64, &mut rng);
-        let input = Input { x: 32.0, y: 5.0, hover: true, down: false, clicks: 1 };
-        sim.step(1.0 / 60.0, &input, &mut rng);
-        assert!(sim.grain_count() > 0);
     }
 
     #[test]
@@ -462,7 +419,7 @@ mod tests {
     fn resize_to_tiny_does_not_panic() {
         let mut rng = Rng::new(3);
         let mut sim = Sand::new(320, 96, &mut rng);
-        let input = Input { x: 10.0, y: 10.0, hover: true, down: true, clicks: 1 };
+        let input = Input::default();
         for _ in 0..20 {
             sim.step(1.0 / 60.0, &input, &mut rng);
         }
@@ -478,20 +435,10 @@ mod tests {
     fn large_dt_does_not_explode_or_panic() {
         let mut rng = Rng::new(4);
         let mut sim = Sand::new(64, 64, &mut rng);
-        let input = Input { x: 32.0, y: 32.0, hover: true, down: true, clicks: 1 };
+        let input = Input::default();
         for _ in 0..10 {
             sim.step(2.5, &input, &mut rng);
         }
         assert!(sim.grain_count() <= sim.cap());
-    }
-
-    #[test]
-    fn out_of_bounds_pointer_does_not_panic() {
-        let mut rng = Rng::new(5);
-        let mut sim = Sand::new(64, 64, &mut rng);
-        let input = Input { x: -500.0, y: 99999.0, hover: true, down: true, clicks: 1 };
-        for _ in 0..30 {
-            sim.step(1.0 / 60.0, &input, &mut rng);
-        }
     }
 }

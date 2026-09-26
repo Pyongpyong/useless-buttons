@@ -76,18 +76,17 @@ impl UselessButton {
         };
     }
 
-    /// Update pointer state. Coordinates are device pixels relative to
-    /// the canvas.
-    pub fn pointer(&mut self, x: f32, y: f32, hover: bool, down: bool) {
-        self.input.x = x;
-        self.input.y = y;
-        self.input.hover = hover;
-        self.input.down = down;
-    }
-
-    /// Register a click. Consumed (reset to 0) on the next `tick`.
+    /// Register a press (game input; visual variants ignore it). Consumed
+    /// (reset to 0) on the next `tick`.
     pub fn click(&mut self) {
         self.input.clicks = self.input.clicks.saturating_add(1);
+    }
+
+    /// Register a press on the left half of the button. Counts as a click
+    /// too, for games that don't care which side was pressed.
+    pub fn click_left(&mut self) {
+        self.click();
+        self.input.left_clicks = self.input.left_clicks.saturating_add(1);
     }
 
     /// Advance the simulation by `dt` seconds and render the result into
@@ -96,7 +95,7 @@ impl UselessButton {
     pub fn tick(&mut self, dt: f32) {
         self.sim.step(dt, &self.input, &mut self.rng);
         self.sim.render(&mut self.frame, &self.theme);
-        self.input.clicks = 0;
+        self.input = Input::default();
     }
 
     /// Pointer to the start of the RGBA pixel buffer in wasm linear
@@ -116,6 +115,17 @@ impl UselessButton {
         self.sim.preferred_fps()
     }
 
+    /// Whether this variant is a game, i.e. its label and clicks should
+    /// stay locked until `cleared()` turns true.
+    pub fn is_game(&self) -> bool {
+        self.variant.is_game()
+    }
+
+    /// Games only: `true` once the game has been beaten. Never reverts.
+    pub fn cleared(&self) -> bool {
+        self.sim.cleared()
+    }
+
     /// The variant actually running (after typo/fallback resolution), as
     /// a stable lowercase string.
     pub fn variant(&self) -> String {
@@ -129,7 +139,7 @@ mod tests {
 
     #[test]
     fn constructs_and_ticks_for_every_variant() {
-        for name in ["swarm", "sand", "life", "fractal", "bounce", "dungeon", "starry", "voronoi", "hyperdrive", "tunnel", "matrix", "blackhole", "chrome", "plasma", "stained-glass", "aurora", "ripple", "hologram", "supernova"] {
+        for name in ["swarm", "sand", "life", "fractal", "bounce", "dungeon", "starry", "voronoi", "hyperdrive", "tunnel", "matrix", "blackhole", "chrome", "plasma", "stained-glass", "aurora", "ripple", "hologram", "supernova", "flappy", "runner", "timing", "crossy"] {
             let mut ub = UselessButton::new(name, 320, 96, 1);
             assert_eq!(ub.variant(), name);
             for _ in 0..10 {
@@ -139,6 +149,16 @@ mod tests {
             let ptr = ub.frame_ptr();
             assert!(!ptr.is_null());
         }
+    }
+
+    #[test]
+    fn only_games_start_locked() {
+        for name in ["flappy", "runner", "timing", "crossy"] {
+            let ub = UselessButton::new(name, 320, 96, 1);
+            assert!(ub.is_game() && !ub.cleared(), "{name}");
+        }
+        let ub = UselessButton::new("swarm", 320, 96, 1);
+        assert!(!ub.is_game() && !ub.cleared());
     }
 
     #[test]
@@ -175,7 +195,7 @@ mod tests {
 
     #[test]
     fn click_is_consumed_after_one_tick() {
-        let mut ub = UselessButton::new("swarm", 320, 96, 1);
+        let mut ub = UselessButton::new("flappy", 320, 96, 1);
         ub.click();
         assert_eq!(ub.input.clicks, 1);
         ub.tick(1.0 / 60.0);

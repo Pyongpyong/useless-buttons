@@ -1,9 +1,8 @@
 //! `life` — Conway's Game of Life, decoupled from render fps.
 //!
-//! The automaton advances at a fixed ~12 generations/second via an
-//! internal accumulator, however fast (or rarely) `render` gets called —
-//! and speeds up to ~36 generations/second while the cursor is hovering,
-//! so the board visibly "grows faster" wherever attention is. Cells track
+//! The automaton advances at a fixed ~36 generations/second via an
+//! internal accumulator, however fast (or rarely) `render` gets called.
+//! Cells track
 //! their age (for color) and dead cells leave a decaying "ghost" so the
 //! whole thing doesn't flicker between hard on/off states.
 
@@ -12,22 +11,11 @@ use crate::paint::{Frame, Rgb, Theme};
 use crate::rng::Rng;
 
 const CELL_PX: usize = 2;
-/// Base (idle) simulation rate — 3x the original ~12 generations/sec.
+/// Simulation rate — 3x the original ~12 generations/sec.
 const STEP_DT: f32 = 1.0 / 36.0;
-/// While hovering, generations advance this many times faster still than
-/// the (already tripled) idle rate above.
-const HOVER_STEP_SPEEDUP: f32 = 3.0;
 const MAX_SUBSTEPS: u32 = 4;
 const GHOST_DECAY: f32 = 0.82;
 const AGE_SATURATE: f32 = 60.0;
-const CLICK_SEED_RADIUS_CELLS: i64 = 10;
-const CLICK_SEED_P: f32 = 0.6;
-/// A gentle, continuous sprinkle of new cells under the cursor whenever
-/// it's hovering — not just on click — so the board looks like it's
-/// actively "growing" wherever attention is, not just occasionally
-/// reseeded.
-const HOVER_SEED_RADIUS_CELLS: i64 = 3;
-const HOVER_SEED_P: f32 = 0.05;
 /// Initial (and post-stagnation... see `reseed`) fill density.
 const INITIAL_DENSITY: f32 = 0.34;
 /// If population hasn't changed for this many *simulation* steps, the
@@ -53,7 +41,6 @@ pub struct Life {
     acc: f32,
     last_pop: i64,
     stagnant_steps: u32,
-    generation: u64,
 }
 
 fn grid_dims(w: usize, h: usize) -> (usize, usize) {
@@ -73,7 +60,6 @@ impl Life {
             acc: 0.0,
             last_pop: -1,
             stagnant_steps: 0,
-            generation: 0,
         };
         s.reseed(INITIAL_DENSITY, rng);
         s
@@ -221,7 +207,6 @@ impl Life {
             }
         }
         self.alive = next_alive;
-        self.generation += 1;
 
         let pop_after = self.population();
         if pop_after < pop_before {
@@ -246,11 +231,6 @@ impl Life {
     pub(crate) fn population_pub(&self) -> usize {
         self.population()
     }
-
-    #[cfg(test)]
-    pub(crate) fn generation_count(&self) -> u64 {
-        self.generation
-    }
 }
 
 impl Sim for Life {
@@ -271,11 +251,9 @@ impl Sim for Life {
         self.reseed(INITIAL_DENSITY, rng);
     }
 
-    fn step(&mut self, dt: f32, input: &Input, rng: &mut Rng) {
+    fn step(&mut self, dt: f32, _: &Input, rng: &mut Rng) {
         let dt = if dt.is_finite() { dt.clamp(0.0, 1.0) } else { 0.0 };
-        // Hovering compresses simulated time: more generations per real
-        // second, so growth visibly accelerates wherever the cursor is.
-        let step_dt = if input.hover { STEP_DT / HOVER_STEP_SPEEDUP } else { STEP_DT };
+        let step_dt = STEP_DT;
 
         self.acc += dt;
         let mut steps = 0;
@@ -286,17 +264,6 @@ impl Sim for Life {
         }
         if self.acc > step_dt * MAX_SUBSTEPS as f32 {
             self.acc = 0.0;
-        }
-
-        if self.cols > 0 && self.rows > 0 {
-            let cx = (input.x as i64) / CELL_PX as i64;
-            let cy = (input.y as i64) / CELL_PX as i64;
-            if input.clicks > 0 {
-                self.seed_around(cx, cy, CLICK_SEED_RADIUS_CELLS, CLICK_SEED_P, rng);
-            }
-            if input.hover {
-                self.seed_around(cx, cy, HOVER_SEED_RADIUS_CELLS, HOVER_SEED_P, rng);
-            }
         }
     }
 
@@ -367,61 +334,6 @@ mod tests {
     }
 
     #[test]
-    fn click_seeds_around_cursor() {
-        let mut rng = Rng::new(2);
-        let mut sim = Life::new(90, 90, &mut rng);
-        for a in sim.alive.iter_mut() {
-            *a = false;
-        }
-        let input = Input { x: 45.0, y: 45.0, hover: true, down: false, clicks: 1 };
-        sim.step(0.0, &input, &mut rng);
-        assert!(sim.population_pub() > 0, "click should seed cells near cursor");
-    }
-
-    #[test]
-    fn hover_seeds_cells_without_requiring_a_click() {
-        let mut rng = Rng::new(21);
-        let mut sim = Life::new(90, 90, &mut rng);
-        for a in sim.alive.iter_mut() {
-            *a = false;
-        }
-        let input = Input { x: 45.0, y: 45.0, hover: true, down: false, clicks: 0 };
-        let mut seeded = false;
-        for _ in 0..200 {
-            sim.step(1.0 / 60.0, &input, &mut rng);
-            if sim.population_pub() > 0 {
-                seeded = true;
-                break;
-            }
-        }
-        assert!(seeded, "expected hovering (no click) to eventually seed cells near the cursor");
-    }
-
-    #[test]
-    fn hover_speeds_up_generation_rate() {
-        let mut rng_hover = Rng::new(20);
-        let mut sim_hover = Life::new(60, 60, &mut rng_hover);
-        let hover_input = Input { x: 30.0, y: 30.0, hover: true, down: false, clicks: 0 };
-        for _ in 0..60 {
-            sim_hover.step(1.0 / 60.0, &hover_input, &mut rng_hover);
-        }
-
-        let mut rng_idle = Rng::new(20);
-        let mut sim_idle = Life::new(60, 60, &mut rng_idle);
-        let idle_input = Input::default();
-        for _ in 0..60 {
-            sim_idle.step(1.0 / 60.0, &idle_input, &mut rng_idle);
-        }
-
-        assert!(
-            sim_hover.generation_count() > sim_idle.generation_count(),
-            "expected hovering to advance more generations than idling over the same wall-clock time: hover={} idle={}",
-            sim_hover.generation_count(),
-            sim_idle.generation_count()
-        );
-    }
-
-    #[test]
     fn population_does_not_dwindle_to_almost_nothing_over_time() {
         let mut rng = Rng::new(30);
         let mut sim = Life::new(120, 120, &mut rng);
@@ -476,7 +388,7 @@ mod tests {
         let mut rng = Rng::new(4);
         let mut sim = Life::new(320, 96, &mut rng);
         sim.resize(4, 4, &mut rng);
-        let input = Input { x: 1.0, y: 1.0, hover: true, down: false, clicks: 1 };
+        let input = Input::default();
         for _ in 0..20 {
             sim.step(1.0 / 12.0, &input, &mut rng);
         }

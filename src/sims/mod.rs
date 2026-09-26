@@ -3,6 +3,7 @@
 pub mod bounce;
 pub mod dungeon;
 pub mod fractal;
+pub mod games;
 pub mod hyperdrive;
 pub mod life;
 pub mod matrix;
@@ -16,15 +17,15 @@ pub mod voronoi;
 use crate::paint::{Frame, Theme};
 use crate::rng::Rng;
 
-/// Pointer state, in frame-local device pixels, sampled once per tick.
+/// Player input, sampled once per tick. Only games read it — the visual
+/// variants are purely ambient.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Input {
-    pub x: f32,
-    pub y: f32,
-    pub hover: bool,
-    pub down: bool,
-    /// Number of clicks since the previous tick (almost always 0 or 1).
+    /// Presses since the previous tick (almost always 0 or 1).
     pub clicks: u32,
+    /// How many of `clicks` landed on the left half of the button. Only
+    /// games that move both ways (`crossy`) tell the halves apart.
+    pub left_clicks: u32,
 }
 
 /// A self-contained, resizable, steppable, renderable simulation.
@@ -48,6 +49,13 @@ pub trait Sim {
     /// different (usually lower, for `prefers-reduced-motion`) rate.
     fn preferred_fps(&self) -> f32 {
         60.0
+    }
+
+    /// Games only: `true` once the player has beaten it. Must never go
+    /// back to `false` — the host unlocks the button's label and clicks
+    /// the moment this flips.
+    fn cleared(&self) -> bool {
+        false
     }
 }
 
@@ -73,6 +81,10 @@ pub enum Variant {
     Ripple,
     Hologram,
     Supernova,
+    Flappy,
+    Runner,
+    Timing,
+    Crossy,
 }
 
 impl Variant {
@@ -100,6 +112,10 @@ impl Variant {
             "ripple" => Variant::Ripple,
             "hologram" => Variant::Hologram,
             "supernova" => Variant::Supernova,
+            "flappy" | "flappy-bird" | "bird" => Variant::Flappy,
+            "runner" | "jump" | "platformer" | "wonderboy" | "wonder-boy" => Variant::Runner,
+            "timing" | "timing-ring" => Variant::Timing,
+            "crossy" | "crossy-road" | "chicken" => Variant::Crossy,
             "swarm" | "boids" | "" => Variant::Swarm,
             _ => Variant::Swarm,
         }
@@ -126,7 +142,17 @@ impl Variant {
             Variant::Ripple => "ripple",
             Variant::Hologram => "hologram",
             Variant::Supernova => "supernova",
+            Variant::Flappy => "flappy",
+            Variant::Runner => "runner",
+            Variant::Timing => "timing",
+            Variant::Crossy => "crossy",
         }
+    }
+
+    /// Games lock the button's label and clicks until they're cleared;
+    /// everything else is a purely visual background.
+    pub fn is_game(self) -> bool {
+        matches!(self, Variant::Flappy | Variant::Runner | Variant::Timing | Variant::Crossy)
     }
 
     /// Construct a freshly sized instance of this variant.
@@ -151,6 +177,10 @@ impl Variant {
             Variant::Ripple => Box::new(spectacle::Spectacle::new(spectacle::Effect::Ripple, w, h, rng)),
             Variant::Hologram => Box::new(spectacle::Spectacle::new(spectacle::Effect::Hologram, w, h, rng)),
             Variant::Supernova => Box::new(spectacle::Spectacle::new(spectacle::Effect::Supernova, w, h, rng)),
+            Variant::Flappy => Box::new(games::flappy::Flappy::new(w, h, rng)),
+            Variant::Runner => Box::new(games::runner::Runner::new(w, h, rng)),
+            Variant::Timing => Box::new(games::timing::Timing::new(w, h, rng)),
+            Variant::Crossy => Box::new(games::crossy::Crossy::new(w, h, rng)),
         }
     }
 }
@@ -202,6 +232,11 @@ mod tests {
         assert_eq!(Variant::Hologram.as_str(), "hologram");
         assert_eq!(Variant::parse(" SUPERNOVA "), Variant::Supernova);
         assert_eq!(Variant::Supernova.as_str(), "supernova");
+        assert_eq!(Variant::parse(" Flappy "), Variant::Flappy);
+        assert_eq!(Variant::parse("wonderboy"), Variant::Runner);
+        assert_eq!(Variant::parse("TIMING"), Variant::Timing);
+        assert_eq!(Variant::parse("crossy-road"), Variant::Crossy);
+        assert!(Variant::Timing.is_game() && !Variant::Swarm.is_game());
     }
 
     #[test]

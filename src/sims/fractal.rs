@@ -6,10 +6,8 @@
 //! meaningful zoom depth `f32` loses enough precision that the image
 //! visibly degrades into blocky noise.
 //!
-//! Zoom only ever goes one direction: in. With no interaction at all it
-//! still keeps deepening at a slow, steady rate (so the button is never
-//! visually static while idle); hovering redirects the center towards the
-//! cursor and roughly doubles the zoom rate.
+//! Zoom only ever goes one direction: in, at a slow, steady rate, so the
+//! button is never visually static.
 //!
 //! A fixed center zoomed in on forever will, sooner or later, drift into
 //! either the solid interior of the set or open space far outside it —
@@ -32,13 +30,9 @@ const MAX_DT: f64 = 0.1;
 const BASE_SPAN: f64 = 2.5;
 const MIN_ZOOM: f64 = 1.0;
 const MAX_ZOOM: f64 = 1.0e13;
-/// Zoom multiplier per second with no interaction at all — always
-/// forward, never reset, so the fractal keeps visibly deepening at rest.
-const IDLE_ZOOM_RATE: f64 = 1.18;
-/// Zoom multiplier per second while hovering — noticeably faster than
-/// idle, and steered towards wherever the cursor points.
-const HOVER_ZOOM_RATE: f64 = 2.4;
-const CENTER_LERP: f64 = 2.2; // per-second exponential-approach rate
+/// Zoom multiplier per second — always forward, never reset, so the
+/// fractal keeps visibly deepening.
+const ZOOM_RATE: f64 = 1.18;
 /// Once zoom crosses this — still many orders of magnitude short of
 /// where `f64` precision would start visibly degrading the image —
 /// relocate to a new preset and keep zooming from there. Keeps the
@@ -65,7 +59,7 @@ const BOUNDARY_NUDGE_RATE: f64 = 14.0;
 const BORING_SECONDS_BEFORE_RECYCLE: f64 = 0.6;
 
 /// A handful of hand-picked coordinates, all already close to actual
-/// boundary detail, to relocate to — on click, or automatically once the
+/// boundary detail, to relocate to automatically once the
 /// current spot has gone flat or been zoomed in on enough. They don't
 /// need to be pixel-perfect: the boundary-seeking nudge above corrects
 /// onto real detail within the first few steps after landing. None of
@@ -87,7 +81,6 @@ pub struct Fractal {
     lh: usize,
     center: (f64, f64),
     zoom: f64,
-    target_center: (f64, f64),
     preset_idx: usize,
     /// Accumulated seconds the boundary probes have found nothing
     /// nearby, back to back. Reset the moment any probe finds detail.
@@ -114,7 +107,6 @@ impl Fractal {
             lh,
             center: HOME_CENTER,
             zoom: HOME_ZOOM,
-            target_center: HOME_CENTER,
             preset_idx: rng.range_usize(0, PRESETS.len()),
             boring_time: 0.0,
         }
@@ -124,21 +116,12 @@ impl Fractal {
         BASE_SPAN / self.zoom / (self.h.max(1) as f64)
     }
 
-    fn pixel_to_complex(&self, px: f64, py: f64) -> (f64, f64) {
-        let scale = self.scale();
-        let re = self.center.0 + (px - self.w as f64 / 2.0) * scale;
-        let im = self.center.1 + (py - self.h as f64 / 2.0) * scale;
-        (re, im)
-    }
-
-    /// Relocate straight to the next preset in the rotation (used by an
-    /// explicit click, by the deep-zoom recycle, and by the
-    /// gone-boring-for-too-long recycle).
+    /// Relocate straight to the next preset in the rotation (used by the
+    /// deep-zoom recycle and by the gone-boring-for-too-long recycle).
     fn jump_to_preset(&mut self) {
         let preset = PRESETS[self.preset_idx % PRESETS.len()];
         self.preset_idx = (self.preset_idx + 1) % PRESETS.len();
         self.center = (preset.0, preset.1);
-        self.target_center = self.center;
         self.zoom = preset.2.clamp(MIN_ZOOM, MAX_ZOOM);
         self.boring_time = 0.0;
     }
@@ -207,31 +190,14 @@ impl Sim for Fractal {
         self.lh = lh;
     }
 
-    fn step(&mut self, dt: f32, input: &Input, rng: &mut Rng) {
+    fn step(&mut self, dt: f32, _: &Input, rng: &mut Rng) {
         let dt = if dt.is_finite() {
             (dt as f64).clamp(0.0, MAX_DT)
         } else {
             0.0
         };
 
-        if input.clicks > 0 {
-            self.jump_to_preset();
-            return;
-        }
-
-        if input.hover {
-            let (re, im) = self.pixel_to_complex(input.x as f64, input.y as f64);
-            self.target_center = (re, im);
-            let t = 1.0 - (-CENTER_LERP * dt).exp();
-            self.center.0 += (self.target_center.0 - self.center.0) * t;
-            self.center.1 += (self.target_center.1 - self.center.1) * t;
-            self.zoom *= HOVER_ZOOM_RATE.powf(dt);
-        } else {
-            // No interaction at all: keep zooming into wherever we
-            // already are. The fractal should never look frozen just
-            // because nobody's touching the button.
-            self.zoom *= IDLE_ZOOM_RATE.powf(dt);
-        }
+        self.zoom *= ZOOM_RATE.powf(dt);
 
         self.seek_boundary(dt, rng);
 
@@ -352,19 +318,7 @@ mod tests {
     }
 
     #[test]
-    fn hover_zooms_in_over_time() {
-        let mut rng = Rng::new(1);
-        let mut sim = Fractal::new(320, 96, &mut rng);
-        let input = Input { x: 200.0, y: 40.0, hover: true, down: false, clicks: 0 };
-        let start_zoom = sim.zoom();
-        for _ in 0..120 {
-            sim.step(1.0 / 60.0, &input, &mut rng);
-        }
-        assert!(sim.zoom() > start_zoom, "expected zoom to increase while hovering");
-    }
-
-    #[test]
-    fn idle_zoom_keeps_increasing_without_any_interaction() {
+    fn zoom_keeps_increasing_on_its_own() {
         let mut rng = Rng::new(2);
         let mut sim = Fractal::new(320, 96, &mut rng);
         let idle = Input::default();
@@ -376,39 +330,6 @@ mod tests {
             sim.zoom() > start_zoom,
             "expected zoom to keep increasing on its own even with zero interaction"
         );
-    }
-
-    #[test]
-    fn hover_zooms_in_faster_than_idle() {
-        // Kept short enough (well under BORING_SECONDS_BEFORE_RECYCLE)
-        // that neither branch has relocated yet — this compares the raw
-        // zoom rates, not which one happened to relocate to which preset.
-        let mut rng_hover = Rng::new(9);
-        let mut sim_hover = Fractal::new(320, 96, &mut rng_hover);
-        let hover_input = Input { x: 200.0, y: 40.0, hover: true, down: false, clicks: 0 };
-        for _ in 0..20 {
-            sim_hover.step(1.0 / 60.0, &hover_input, &mut rng_hover);
-        }
-
-        let mut rng_idle = Rng::new(9);
-        let mut sim_idle = Fractal::new(320, 96, &mut rng_idle);
-        let idle_input = Input::default();
-        for _ in 0..20 {
-            sim_idle.step(1.0 / 60.0, &idle_input, &mut rng_idle);
-        }
-
-        assert!(sim_hover.zoom() > sim_idle.zoom());
-    }
-
-    #[test]
-    fn click_jumps_to_preset_instantly() {
-        let mut rng = Rng::new(3);
-        let mut sim = Fractal::new(320, 96, &mut rng);
-        let click = Input { x: 0.0, y: 0.0, hover: false, down: false, clicks: 1 };
-        sim.step(1.0 / 60.0, &click, &mut rng);
-        let (cx, cy) = sim.center();
-        let matches_preset = PRESETS.iter().any(|(pr, pi, _)| (pr - cx).abs() < 1e-9 && (pi - cy).abs() < 1e-9);
-        assert!(matches_preset, "click should jump to one of the preset coordinates");
     }
 
     #[test]
@@ -452,7 +373,7 @@ mod tests {
     fn large_dt_stays_finite() {
         let mut rng = Rng::new(4);
         let mut sim = Fractal::new(320, 96, &mut rng);
-        let input = Input { x: 10.0, y: 10.0, hover: true, down: false, clicks: 0 };
+        let input = Input::default();
         for _ in 0..20 {
             sim.step(10.0, &input, &mut rng);
         }
@@ -466,7 +387,7 @@ mod tests {
         let mut rng = Rng::new(5);
         let mut sim = Fractal::new(320, 96, &mut rng);
         sim.resize(4, 4, &mut rng);
-        let input = Input { x: 1.0, y: 1.0, hover: true, down: false, clicks: 1 };
+        let input = Input::default();
         for _ in 0..10 {
             sim.step(1.0 / 60.0, &input, &mut rng);
         }

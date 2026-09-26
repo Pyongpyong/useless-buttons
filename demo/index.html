@@ -72,6 +72,17 @@
     cursor: pointer;
   }
 
+  .category {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .75rem;
+    width: min(1280px, 100%);
+  }
+  .category + .category { margin-top: 1.5rem; }
+  .category-title { margin: 0; font-size: 1.25rem; }
+  .category-sub { margin: 0; opacity: .7; text-align: center; max-width: 60ch; font-size: .9rem; }
+
   .grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -94,7 +105,11 @@
   @media (max-width: 520px) { .grid { grid-template-columns: minmax(0, 1fr); } }
   .card > useless-button { margin-block: .5rem; }
   .fx-value { font-size: .72rem; opacity: .65; overflow-wrap: anywhere; }
-  .card h2 { margin: 0; font-size: .95rem; font-weight: 600; }
+  .card h3 { margin: 0; font-size: .95rem; font-weight: 600; }
+  /* Games need a bigger playfield than the default 160x48 minimum. */
+  .games useless-button::part(button) { min-width: 260px; min-height: 72px; }
+  .game-status { font-size: .8rem; font-weight: 600; }
+  .game-status.cleared { color: #2f9e44; }
   .card p { margin: 0; font-size: .8rem; opacity: .7; text-align: center; }
 
   useless-button {
@@ -133,7 +148,7 @@
     <span class="name">useless-buttons</span>
     <span class="tagline">a collection of needlessly elaborate buttons</span>
   </h1>
-  <p class="sub">Hover and click around. Every button's background is a live Rust/wasm simulation.</p>
+  <p class="sub">Every button's background is a live Rust/wasm simulation — and some of them are games you have to beat first.</p>
   <nav class="project-links" aria-label="Project links">
     <a href="https://www.npmjs.com/package/useless-buttons">npm</a>
     <a href="https://github.com/Pyongpyong/useless-buttons">GitHub</a>
@@ -167,6 +182,7 @@
     </label>
 
     <button class="tool" id="disable-toggle" type="button">Toggle all disabled</button>
+    <button class="tool" id="relock-games" type="button">🔒 Re-lock all games</button>
 
     <label>
       Global text-fx
@@ -197,128 +213,167 @@
   </div>
   </details>
 
+  <section class="category" aria-labelledby="cat-games">
+  <h2 class="category-title" id="cat-games">Games</h2>
+  <p class="category-sub">The game starts on its own and plays in the background. The label stays hidden and the button ignores clicks until you beat it. Left alone, every game ends in a game over and restarts.</p>
+  <div class="grid games">
+    <div class="card">
+      <h3>flappy</h3>
+      <useless-button variant="flappy" seed="61" text-fx="snake">You can fly!</useless-button>
+      <code class="fx-value">text-fx="snake"</code>
+      <p class="game-status" aria-live="polite">🔒 Locked</p>
+      <p>Click to flap. Thread the bird through 10 pipes to reach the checkered flag. Hit a pipe or the ground and it starts over.</p>
+    </div>
+    <div class="card">
+      <h3>runner</h3>
+      <useless-button variant="runner" seed="62" text-fx="slot">Stage clear</useless-button>
+      <code class="fx-value">text-fx="slot"</code>
+      <p class="game-status" aria-live="polite">🔒 Locked</p>
+      <p>The kid runs on their own. Click to jump over 10 chasms and reach the flag. Some ledges are barely wide enough to land on, so time those jumps late. Miss one and it's back to the start.</p>
+    </div>
+    <div class="card">
+      <h3>timing</h3>
+      <useless-button variant="timing" seed="63" text-fx="explode">Perfect timing</useless-button>
+      <code class="fx-value">text-fx="explode"</code>
+      <p class="game-status" aria-live="polite">🔒 Locked</p>
+      <p>Click while the ball is inside the ring and the ring jumps somewhere else. Land 10 hits to clear. Clicking while the ball is outside the ring, or letting it pass through 3 times, ends the run.</p>
+    </div>
+    <div class="card">
+      <h3>crossy</h3>
+      <useless-button variant="crossy" seed="64" text-fx="ricochet">Why did the chicken…</useless-button>
+      <code class="fx-value">text-fx="ricochet"</code>
+      <p class="game-status" aria-live="polite">🔒 Locked</p>
+      <p>Get the chicken across 10 roads to the finish on the right. Click the right half of the button to hop right, the left half to hop left (or use ← →). Cars run up and down every road, with a grass rest spot every 3–4 roads. Once you leave the start, or reach a rest spot, there's no going back past it. Dawdle for 6 seconds and the eagle gets you.</p>
+    </div>
+  </div>
+  </section>
+
+  <section class="category" aria-labelledby="cat-visual">
+  <h2 class="category-title" id="cat-visual">Visual effects</h2>
+  <p class="category-sub">Animated backgrounds and label effects. Always clickable.</p>
   <div class="grid">
     <div class="card">
-      <h2>swarm (boids)</h2>
+      <h3>swarm (boids)</h3>
       <useless-button variant="swarm" seed="1" text-fx="spin">Flee the swarm</useless-button>
       <code class="fx-value">text-fx="spin"</code>
-      <p>The cursor is a predator. Hold to scare the flock, click for a panic burst.</p>
+      <p>Hundreds of boids flock, wander and split up.</p>
     </div>
     <div class="card">
-      <h2>sand (falling sand)</h2>
+      <h3>sand (falling sand)</h3>
       <useless-button variant="sand" seed="2" text-fx="skew">Pile up sand</useless-button>
       <code class="fx-value">text-fx="skew"</code>
-      <p>Hold to pour sand, click for a one-shot dump.</p>
+      <p>Sand rains in and piles up until the button is full, then starts over in a new color.</p>
     </div>
     <div class="card">
-      <h2>life (Conway)</h2>
+      <h3>life (Conway)</h3>
       <useless-button variant="life" seed="3" text-fx="explode">Game of life</useless-button>
       <code class="fx-value">text-fx="explode"</code>
-      <p>Click to seed randomly around the cursor. Revives itself if it ever stalls.</p>
+      <p>New clusters sprout as cells die off, so the board never stalls.</p>
     </div>
     <div class="card">
-      <h2>fractal (Mandelbrot)</h2>
+      <h3>fractal (Mandelbrot)</h3>
       <useless-button variant="fractal" seed="4" text-fx="zoom">Fractal zoom</useless-button>
       <code class="fx-value">text-fx="zoom"</code>
-      <p>Hover to zoom in on the cursor's coordinates, click to jump elsewhere.</p>
+      <p>A never-ending zoom that relocates whenever the view runs out of detail.</p>
     </div>
     <div class="card">
-      <h2>bounce (pixel bounce)</h2>
+      <h3>bounce (pixel bounce)</h3>
       <useless-button variant="bounce" seed="9" text-fx="ricochet">Pixel chaos</useless-button>
       <code class="fx-value">text-fx="ricochet"</code>
       <p>Dozens of colored pixels ricochet off the walls and each other, changing color on every hit. Trails are painted permanently — they never fade.</p>
     </div>
     <div class="card">
-      <h2>dungeon (maze explorer)</h2>
+      <h3>dungeon (maze explorer)</h3>
       <useless-button variant="dungeon" seed="10" text-fx="corridor">Dungeon crawl</useless-button>
       <code class="fx-value">text-fx="corridor"</code>
       <p>A raycast first-person view (DOOM-style) wandering a maze forever. Brick walls, warm where they run north-south and cool where they run east-west, over tiled floor and ceiling.</p>
     </div>
     <div class="card">
-      <h2>starry (Starry Night)</h2>
+      <h3>starry (Starry Night)</h3>
       <useless-button variant="starry" seed="11" text-fx="snake">Starry night</useless-button>
       <code class="fx-value">text-fx="snake"</code>
-      <p>Van Gogh-ish spirals turning over a night sky. Hover to speed up the ones near the cursor, click to send the whole sky the other way.</p>
+      <p>Van Gogh-ish spirals turning over a night sky, with brush strokes streaming between them.</p>
     </div>
     <div class="card">
-      <h2>voronoi (moving cells)</h2>
+      <h3>voronoi (moving cells)</h3>
       <useless-button variant="voronoi" seed="12" text-fx="slot">Voronoi cells</useless-button>
       <code class="fx-value">text-fx="slot"</code>
-      <p>A Voronoi diagram over drifting points. Hover and the cursor becomes a cell of its own; click to re-roll every color.</p>
+      <p>A Voronoi diagram over drifting points, re-forming every frame.</p>
     </div>
     <div class="card">
-      <h2>hyperdrive (lightspeed)</h2>
+      <h3>hyperdrive (lightspeed)</h3>
       <useless-button variant="hyperdrive" seed="15" text-fx="streak">Punch it</useless-button>
       <code class="fx-value">text-fx="streak"</code>
-      <p>The jump to lightspeed, on a loop: the starfield stretches into streaks that are swallowed by the vanishing point, then a white flash. Hover to spool up early, click to punch it.</p>
+      <p>The jump to lightspeed, on a loop: the starfield stretches into streaks that are swallowed by the vanishing point, then a white flash.</p>
     </div>
     <div class="card">
-      <h2>tunnel (dimension tunnel)</h2>
+      <h3>tunnel (dimension tunnel)</h3>
       <useless-button variant="tunnel" seed="16" style="--ub-accent: #f2faff" text-fx="tunnel">Enter the portal</useless-button>
       <code class="fx-value">text-fx="tunnel"</code>
-      <p>Steer the neon vanishing point. Hold to accelerate; click to jump into a new color dimension.</p>
+      <p>Fly down a neon tunnel of glowing rings and twisting rails.</p>
     </div>
     <div class="card">
-      <h2>blackhole</h2>
+      <h3>blackhole</h3>
       <useless-button variant="blackhole" seed="30" style="--ub-accent: #f2faff" text-fx="blackhole">Beyond the horizon</useless-button>
       <code class="fx-value">text-fx="blackhole"</code>
-      <p>Orbit an accretion disk on an elliptical flyby: dive close, roll around it, and pull away. Click to collapse it.</p>
+      <p>Orbit an accretion disk on an elliptical flyby: dive close, roll around it, and pull away.</p>
     </div>
     <div class="card">
-      <h2>chrome</h2>
+      <h3>chrome</h3>
       <useless-button variant="chrome" seed="31" style="--ub-accent: #f2faff" text-fx="chrome">Liquid metal</useless-button>
       <code class="fx-value">text-fx="chrome"</code>
-      <p>Liquid metal reflects moving cyan and magenta light. Hover to bend reflections; click for a metallic ripple.</p>
+      <p>Liquid metal reflects moving cyan and magenta light.</p>
     </div>
     <div class="card">
-      <h2>plasma</h2>
+      <h3>plasma</h3>
       <useless-button variant="plasma" seed="32" style="--ub-accent: #f2faff" text-fx="plasma">High voltage</useless-button>
       <code class="fx-value">text-fx="plasma"</code>
-      <p>Branching electric filaments converge near the cursor. Click to intensify the discharge.</p>
+      <p>Branching electric filaments converge on a glowing core.</p>
     </div>
     <div class="card">
-      <h2>stained-glass</h2>
+      <h3>stained-glass</h3>
       <useless-button variant="stained-glass" seed="33" style="--ub-accent: #f2faff" text-fx="stained-glass">Break the glass</useless-button>
       <code class="fx-value">text-fx="stained-glass"</code>
-      <p>Shared junctions drift while the outer frame stays fixed, reshaping the colored panes. Click to scatter and reassemble the shards.</p>
+      <p>Shared junctions drift while the outer frame stays fixed, reshaping the colored panes.</p>
     </div>
     <div class="card">
-      <h2>aurora</h2>
+      <h3>aurora</h3>
       <useless-button variant="aurora" seed="34" style="--ub-accent: #f2faff" text-fx="aurora">Chase the lights</useless-button>
       <code class="fx-value">text-fx="aurora"</code>
-      <p>Layered green and violet curtains ripple across the sky. Hover to steer; click for an expanding storm.</p>
+      <p>Layered green and violet curtains ripple across the sky.</p>
     </div>
     <div class="card">
-      <h2>ripple</h2>
+      <h3>ripple</h3>
       <useless-button variant="ripple" seed="35" style="--ub-accent: #f2faff" text-fx="ripple">Make waves</useless-button>
       <code class="fx-value">text-fx="ripple"</code>
-      <p>Caustic light dances across dark water. Click to launch ripples from the cursor.</p>
+      <p>Caustic light dances across dark water.</p>
     </div>
     <div class="card">
-      <h2>hologram</h2>
+      <h3>hologram</h3>
       <useless-button variant="hologram" seed="36" style="--ub-accent: #f2faff" text-fx="hologram">System overload</useless-button>
       <code class="fx-value">text-fx="hologram"</code>
-      <p>Rotating wireframe slices float above a scan grid. Click to expand the projection.</p>
+      <p>Rotating wireframe slices float above a scan grid.</p>
     </div>
     <div class="card">
-      <h2>supernova</h2>
+      <h3>supernova</h3>
       <useless-button variant="supernova" seed="37" style="--ub-accent: #f2faff" text-fx="supernova">Go supernova</useless-button>
       <code class="fx-value">text-fx="supernova"</code>
-      <p>A fiery star pumps at 144 BPM with sharp zoom kicks and rotation. Click for an extra shockwave.</p>
+      <p>A fiery star pumps at 144 BPM with sharp zoom kicks and rotation.</p>
     </div>
     <div class="card">
-      <h2>matrix (digital rain)</h2>
+      <h3>matrix (digital rain)</h3>
       <useless-button variant="matrix" seed="48" style="--ub-accent: #dbffe6" text-fx="matrix">Follow the code</useless-button>
       <code class="fx-value">text-fx="matrix"</code>
-      <p>Green code streams fall continuously with bright heads and fading tails. Hold or click to accelerate.</p>
+      <p>Green code streams fall continuously with bright heads and fading tails.</p>
     </div>
     <div class="card">
-      <h2>Typo'd variant (fallback check)</h2>
+      <h3>Typo'd variant (fallback check)</h3>
       <useless-button variant="SWRAM " seed="5" text-fx="none">Typo fallback</useless-button>
       <code class="fx-value">text-fx="none"</code>
       <p><code>variant="SWRAM "</code> — should fall back to swarm.</p>
     </div>
   </div>
+  </section>
 
   <div class="status" id="status">Initializing...</div>
   <div id="click-log"></div>
@@ -358,6 +413,26 @@
     document.querySelectorAll("useless-button").forEach((el) => {
       el.addEventListener("click", () => log(`clicked: variant=${el.getAttribute("variant")}`));
       el.addEventListener("focus", () => log(`focused: variant=${el.getAttribute("variant")}`));
+    });
+
+    function setGameStatus(el) {
+      const status = el.closest(".card").querySelector(".game-status");
+      status.textContent = el.locked ? "🔒 Locked" : "🔓 Cleared — click away";
+      status.classList.toggle("cleared", !el.locked);
+    }
+    const gameButtons = document.querySelectorAll(".games useless-button");
+    gameButtons.forEach((el) => {
+      setGameStatus(el);
+      el.addEventListener("game-clear", () => {
+        setGameStatus(el);
+        log(`game cleared: variant=${el.getAttribute("variant")}`);
+      });
+    });
+    document.getElementById("relock-games").addEventListener("click", () => {
+      gameButtons.forEach((el) => {
+        el.resetGame();
+        setGameStatus(el);
+      });
     });
 
     document.getElementById("theme-toggle").addEventListener("click", () => {
