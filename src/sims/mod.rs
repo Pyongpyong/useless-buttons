@@ -52,6 +52,10 @@ pub struct Input {
     pub clicks: u32,
     /// Where the first `min(clicks, MAX_PRESSES)` presses landed.
     pub at: [Press; MAX_PRESSES],
+    /// A pointer is being held down on the button right now. Unlike the
+    /// presses this isn't an event: it stays set from tick to tick until
+    /// the pointer lets go.
+    pub held: bool,
 }
 
 impl Input {
@@ -65,6 +69,11 @@ impl Input {
         let mut input = Input::tap();
         input.at[0] = Press { x, y };
         input
+    }
+
+    /// Held down, with no new presses.
+    pub fn hold() -> Input {
+        Input { held: true, ..Input::default() }
     }
 
     /// The presses whose position was recorded.
@@ -134,6 +143,18 @@ pub enum Variant {
     Balloon,
     Memory,
     Dodge,
+    Breakout,
+    Invaders,
+    Pong,
+    Mole,
+    Stack,
+    Heli,
+    Numbers,
+    Rhythm,
+    Survivor,
+    Frog,
+    Crawler,
+    Shooter,
 }
 
 impl Variant {
@@ -169,6 +190,18 @@ impl Variant {
             "balloon" | "balloons" | "pop" => Variant::Balloon,
             "memory" | "match" | "cards" | "concentration" => Variant::Memory,
             "dodge" | "traffic" | "highway" => Variant::Dodge,
+            "breakout" | "arkanoid" | "bricks" => Variant::Breakout,
+            "invaders" | "space-invaders" | "space" => Variant::Invaders,
+            "pong" | "tennis" => Variant::Pong,
+            "mole" | "whack-a-mole" | "whack" => Variant::Mole,
+            "stack" | "tower" | "stacker" => Variant::Stack,
+            "heli" | "helicopter" | "cave" => Variant::Heli,
+            "numbers" | "number-order" | "sequence" => Variant::Numbers,
+            "rhythm" | "rhythm-hero" | "osu" | "beat" => Variant::Rhythm,
+            "survivor" | "survivors" | "vampire" => Variant::Survivor,
+            "frog" | "frogger" | "lilypad" => Variant::Frog,
+            "crawler" | "dungeon-crawl" | "monster-hunt" => Variant::Crawler,
+            "shooter" | "shmup" | "gradius" => Variant::Shooter,
             "swarm" | "boids" | "" => Variant::Swarm,
             _ => Variant::Swarm,
         }
@@ -203,6 +236,18 @@ impl Variant {
             Variant::Balloon => "balloon",
             Variant::Memory => "memory",
             Variant::Dodge => "dodge",
+            Variant::Breakout => "breakout",
+            Variant::Invaders => "invaders",
+            Variant::Pong => "pong",
+            Variant::Mole => "mole",
+            Variant::Stack => "stack",
+            Variant::Heli => "heli",
+            Variant::Numbers => "numbers",
+            Variant::Rhythm => "rhythm",
+            Variant::Survivor => "survivor",
+            Variant::Frog => "frog",
+            Variant::Crawler => "crawler",
+            Variant::Shooter => "shooter",
         }
     }
 
@@ -219,6 +264,18 @@ impl Variant {
                 | Variant::Balloon
                 | Variant::Memory
                 | Variant::Dodge
+                | Variant::Breakout
+                | Variant::Invaders
+                | Variant::Pong
+                | Variant::Mole
+                | Variant::Stack
+                | Variant::Heli
+                | Variant::Numbers
+                | Variant::Rhythm
+                | Variant::Survivor
+                | Variant::Frog
+                | Variant::Crawler
+                | Variant::Shooter
         )
     }
 
@@ -252,6 +309,18 @@ impl Variant {
             Variant::Balloon => Box::new(games::balloon::BalloonPop::new(w, h, rng)),
             Variant::Memory => Box::new(games::memory::Memory::new(w, h, rng)),
             Variant::Dodge => Box::new(games::dodge::Dodge::new(w, h, rng)),
+            Variant::Breakout => Box::new(games::breakout::Breakout::new(w, h, rng)),
+            Variant::Invaders => Box::new(games::invaders::Invaders::new(w, h, rng)),
+            Variant::Pong => Box::new(games::pong::Pong::new(w, h, rng)),
+            Variant::Mole => Box::new(games::mole::MoleWhack::new(w, h, rng)),
+            Variant::Stack => Box::new(games::stack::Stack::new(w, h, rng)),
+            Variant::Heli => Box::new(games::heli::Heli::new(w, h, rng)),
+            Variant::Numbers => Box::new(games::numbers::Numbers::new(w, h, rng)),
+            Variant::Rhythm => Box::new(games::rhythm::Rhythm::new(w, h, rng)),
+            Variant::Survivor => Box::new(games::survivor::Survivor::new(w, h, rng)),
+            Variant::Frog => Box::new(games::frog::Frog::new(w, h, rng)),
+            Variant::Crawler => Box::new(games::crawler::Crawler::new(w, h, rng)),
+            Variant::Shooter => Box::new(games::shooter::Shooter::new(w, h, rng)),
         }
     }
 }
@@ -311,6 +380,19 @@ mod tests {
         assert_eq!(Variant::parse("balloons"), Variant::Balloon);
         assert_eq!(Variant::parse("MEMORY"), Variant::Memory);
         assert_eq!(Variant::parse("highway"), Variant::Dodge);
+        assert_eq!(Variant::parse("Arkanoid"), Variant::Breakout);
+        assert_eq!(Variant::parse("space-invaders"), Variant::Invaders);
+        assert_eq!(Variant::parse(" PONG "), Variant::Pong);
+        assert_eq!(Variant::parse("whack-a-mole"), Variant::Mole);
+        assert_eq!(Variant::parse("Tower"), Variant::Stack);
+        assert_eq!(Variant::parse("helicopter"), Variant::Heli);
+        assert_eq!(Variant::parse("number-order"), Variant::Numbers);
+        assert_eq!(Variant::parse("rhythm-hero"), Variant::Rhythm);
+        assert_eq!(Variant::parse("vampire"), Variant::Survivor);
+        assert_eq!(Variant::parse("Frogger"), Variant::Frog);
+        assert_eq!(Variant::parse("dungeon-crawl"), Variant::Crawler);
+        assert_eq!(Variant::parse("shmup"), Variant::Shooter);
+        assert_eq!(Variant::parse("doom"), Variant::Dungeon, "the visual dungeon keeps its alias");
         assert!(Variant::Timing.is_game() && !Variant::Swarm.is_game());
     }
 

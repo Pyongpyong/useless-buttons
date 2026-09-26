@@ -411,6 +411,9 @@ export class UselessButtonElement extends HTMLElement {
     );
 
     this.buttonEl.addEventListener("pointerdown", this.onPointerDown);
+    this.buttonEl.addEventListener("pointerup", this.onPointerRelease);
+    this.buttonEl.addEventListener("pointercancel", this.onPointerRelease);
+    this.buttonEl.addEventListener("pointerleave", this.onPointerRelease);
     // Registered on the host itself, before any page code can add its
     // own listeners, so it runs first — see `onHostClickCapture`.
     this.addEventListener("click", this.onHostClickCapture, true);
@@ -426,9 +429,17 @@ export class UselessButtonElement extends HTMLElement {
     // but covering the initial-markup case explicitly (rather than
     // relying on timing) is simpler than it is to get wrong.
     this.syncLabelMode();
+    // A release can land outside the button (or never reach it, e.g. the
+    // window losing focus mid-press), so any release anywhere ends a hold.
+    window.addEventListener("pointerup", this.onPointerRelease);
+    window.addEventListener("pointercancel", this.onPointerRelease);
+    window.addEventListener("blur", this.onPointerRelease);
   }
 
   disconnectedCallback(): void {
+    window.removeEventListener("pointerup", this.onPointerRelease);
+    window.removeEventListener("pointercancel", this.onPointerRelease);
+    window.removeEventListener("blur", this.onPointerRelease);
     this.resizeObserver.disconnect();
     this.intersectionObserver.disconnect();
     this.stopAnimating();
@@ -994,6 +1005,8 @@ export class UselessButtonElement extends HTMLElement {
       (ev.clientX - rect.left) / Math.max(1, rect.width),
       (ev.clientY - rect.top) / Math.max(1, rect.height),
     );
+    // Some games (`heli`) respond to holding the press, not just to it.
+    this.core.hold(true);
     if (!this.gameLocked && this.prefersReducedMotion()) {
       // No rAF loop is running in reduced-motion mode: advance exactly
       // one step so a press on a (necessarily unlocked) game still
@@ -1002,5 +1015,10 @@ export class UselessButtonElement extends HTMLElement {
       this.core.tick(1 / 60);
       this.paint();
     }
+  };
+
+  /** Letting go, or sliding off the button, ends a hold. */
+  private onPointerRelease = (): void => {
+    this.core?.hold(false);
   };
 }

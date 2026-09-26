@@ -50,6 +50,18 @@ fn main() {
         Variant::Balloon,
         Variant::Memory,
         Variant::Dodge,
+        Variant::Breakout,
+        Variant::Invaders,
+        Variant::Pong,
+        Variant::Mole,
+        Variant::Stack,
+        Variant::Heli,
+        Variant::Numbers,
+        Variant::Rhythm,
+        Variant::Survivor,
+        Variant::Frog,
+        Variant::Crawler,
+        Variant::Shooter,
     ] {
         if std::env::args().nth(1).map_or(true, |name| name == variant.as_str()) {
             render_variant(variant, &out_dir);
