@@ -20,7 +20,7 @@ pub mod sims;
 
 use paint::{Rgb, Theme};
 use rng::Rng;
-use sims::{Input, Sim, Variant};
+use sims::{Input, Press, Sim, Variant};
 use wasm_bindgen::prelude::*;
 
 /// The whole runtime state of one `<useless-button>` instance.
@@ -76,17 +76,25 @@ impl UselessButton {
         };
     }
 
-    /// Register a press (game input; visual variants ignore it). Consumed
-    /// (reset to 0) on the next `tick`.
+    /// Register a press with no position (game input; visual variants
+    /// ignore it). Consumed on the next `tick`.
     pub fn click(&mut self) {
-        self.input.clicks = self.input.clicks.saturating_add(1);
+        self.press(f32::NAN, f32::NAN);
     }
 
-    /// Register a press on the left half of the button. Counts as a click
-    /// too, for games that don't care which side was pressed.
+    /// Register a press on the left half of the button.
     pub fn click_left(&mut self) {
-        self.click();
-        self.input.left_clicks = self.input.left_clicks.saturating_add(1);
+        self.press(0.0, f32::NAN);
+    }
+
+    /// Register a press at `(x, y)`, each a fraction (`0..=1`) of the
+    /// canvas' width/height from its top-left corner. Pass NaN for an
+    /// axis the press has no position on.
+    pub fn press(&mut self, x: f32, y: f32) {
+        if let Some(slot) = self.input.at.get_mut(self.input.clicks as usize) {
+            *slot = Press { x, y };
+        }
+        self.input.clicks = self.input.clicks.saturating_add(1);
     }
 
     /// Advance the simulation by `dt` seconds and render the result into
@@ -139,7 +147,7 @@ mod tests {
 
     #[test]
     fn constructs_and_ticks_for_every_variant() {
-        for name in ["swarm", "sand", "life", "fractal", "bounce", "dungeon", "starry", "voronoi", "hyperdrive", "tunnel", "matrix", "blackhole", "chrome", "plasma", "stained-glass", "aurora", "ripple", "hologram", "supernova", "flappy", "runner", "timing", "crossy"] {
+        for name in ["swarm", "sand", "life", "fractal", "bounce", "dungeon", "starry", "voronoi", "hyperdrive", "tunnel", "matrix", "blackhole", "chrome", "plasma", "stained-glass", "aurora", "ripple", "hologram", "supernova", "flappy", "runner", "timing", "crossy", "django", "balloon", "memory", "dodge"] {
             let mut ub = UselessButton::new(name, 320, 96, 1);
             assert_eq!(ub.variant(), name);
             for _ in 0..10 {
@@ -153,7 +161,7 @@ mod tests {
 
     #[test]
     fn only_games_start_locked() {
-        for name in ["flappy", "runner", "timing", "crossy"] {
+        for name in ["flappy", "runner", "timing", "crossy", "django", "balloon", "memory", "dodge"] {
             let ub = UselessButton::new(name, 320, 96, 1);
             assert!(ub.is_game() && !ub.cleared(), "{name}");
         }

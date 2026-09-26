@@ -17,15 +17,60 @@ pub mod voronoi;
 use crate::paint::{Frame, Theme};
 use crate::rng::Rng;
 
+/// Most presses a single tick remembers the position of. Anything past
+/// this still counts in `Input::clicks`, just without a position.
+pub const MAX_PRESSES: usize = 8;
+
+/// Where a press landed, as fractions of the frame (`0..=1` on each
+/// axis, top-left origin). An axis is NaN when the press has no position
+/// on it (the element always sends both; the raw core's `click()` sends
+/// neither).
+#[derive(Clone, Copy, Debug)]
+pub struct Press {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Default for Press {
+    fn default() -> Self {
+        Press { x: f32::NAN, y: f32::NAN }
+    }
+}
+
+impl Press {
+    /// Both coordinates known: a pointer press.
+    pub fn is_pointed(&self) -> bool {
+        self.x.is_finite() && self.y.is_finite()
+    }
+}
+
 /// Player input, sampled once per tick. Only games read it — the visual
 /// variants are purely ambient.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Input {
     /// Presses since the previous tick (almost always 0 or 1).
     pub clicks: u32,
-    /// How many of `clicks` landed on the left half of the button. Only
-    /// games that move both ways (`crossy`) tell the halves apart.
-    pub left_clicks: u32,
+    /// Where the first `min(clicks, MAX_PRESSES)` presses landed.
+    pub at: [Press; MAX_PRESSES],
+}
+
+impl Input {
+    /// One press with no position.
+    pub fn tap() -> Input {
+        Input { clicks: 1, ..Input::default() }
+    }
+
+    /// One press at `(x, y)`, as fractions of the frame.
+    pub fn press(x: f32, y: f32) -> Input {
+        let mut input = Input::tap();
+        input.at[0] = Press { x, y };
+        input
+    }
+
+    /// The presses whose position was recorded.
+    pub fn presses(&self) -> &[Press] {
+        &self.at[..(self.clicks as usize).min(MAX_PRESSES)]
+    }
 }
 
 /// A self-contained, resizable, steppable, renderable simulation.
@@ -85,6 +130,10 @@ pub enum Variant {
     Runner,
     Timing,
     Crossy,
+    Django,
+    Balloon,
+    Memory,
+    Dodge,
 }
 
 impl Variant {
@@ -116,6 +165,10 @@ impl Variant {
             "runner" | "jump" | "platformer" | "wonderboy" | "wonder-boy" => Variant::Runner,
             "timing" | "timing-ring" => Variant::Timing,
             "crossy" | "crossy-road" | "chicken" => Variant::Crossy,
+            "django" | "western" | "quickdraw" | "shooting" => Variant::Django,
+            "balloon" | "balloons" | "pop" => Variant::Balloon,
+            "memory" | "match" | "cards" | "concentration" => Variant::Memory,
+            "dodge" | "traffic" | "highway" => Variant::Dodge,
             "swarm" | "boids" | "" => Variant::Swarm,
             _ => Variant::Swarm,
         }
@@ -146,13 +199,27 @@ impl Variant {
             Variant::Runner => "runner",
             Variant::Timing => "timing",
             Variant::Crossy => "crossy",
+            Variant::Django => "django",
+            Variant::Balloon => "balloon",
+            Variant::Memory => "memory",
+            Variant::Dodge => "dodge",
         }
     }
 
     /// Games lock the button's label and clicks until they're cleared;
     /// everything else is a purely visual background.
     pub fn is_game(self) -> bool {
-        matches!(self, Variant::Flappy | Variant::Runner | Variant::Timing | Variant::Crossy)
+        matches!(
+            self,
+            Variant::Flappy
+                | Variant::Runner
+                | Variant::Timing
+                | Variant::Crossy
+                | Variant::Django
+                | Variant::Balloon
+                | Variant::Memory
+                | Variant::Dodge
+        )
     }
 
     /// Construct a freshly sized instance of this variant.
@@ -181,6 +248,10 @@ impl Variant {
             Variant::Runner => Box::new(games::runner::Runner::new(w, h, rng)),
             Variant::Timing => Box::new(games::timing::Timing::new(w, h, rng)),
             Variant::Crossy => Box::new(games::crossy::Crossy::new(w, h, rng)),
+            Variant::Django => Box::new(games::django::Django::new(w, h, rng)),
+            Variant::Balloon => Box::new(games::balloon::BalloonPop::new(w, h, rng)),
+            Variant::Memory => Box::new(games::memory::Memory::new(w, h, rng)),
+            Variant::Dodge => Box::new(games::dodge::Dodge::new(w, h, rng)),
         }
     }
 }
@@ -236,6 +307,10 @@ mod tests {
         assert_eq!(Variant::parse("wonderboy"), Variant::Runner);
         assert_eq!(Variant::parse("TIMING"), Variant::Timing);
         assert_eq!(Variant::parse("crossy-road"), Variant::Crossy);
+        assert_eq!(Variant::parse(" Django"), Variant::Django);
+        assert_eq!(Variant::parse("balloons"), Variant::Balloon);
+        assert_eq!(Variant::parse("MEMORY"), Variant::Memory);
+        assert_eq!(Variant::parse("highway"), Variant::Dodge);
         assert!(Variant::Timing.is_game() && !Variant::Swarm.is_game());
     }
 

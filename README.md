@@ -73,6 +73,74 @@ defineUselessButton("my-button"); // registers an additional alias tag
 
 ## Variants
 
+Variants come in two categories:
+
+- **[Games](#games)** run a tiny arcade game in the background and keep
+  the button locked until you beat it.
+- **[Visual effects](#visual-effects)** are an animated background behind
+  a label that's always there and always clickable.
+
+An unrecognized or misspelled `variant` (`"SWRAM "`, `"boidz"`, ...) never
+throws or renders a broken button — it silently falls back to `swarm`.
+
+### Games
+
+Game variants run a tiny arcade game in the button's background, and the
+button stays *locked* until you beat it:
+
+- The game starts by itself and plays on its own. Left alone, it ends in
+  a game over within a few seconds (a red flash) and restarts.
+- Pressing the button with a mouse, pen or finger is the game's input;
+  the keyboard doesn't play games. Some games also care *where* you
+  press: `crossy` reads the left/right half, `dodge` the top/bottom half,
+  and `django`, `balloon` and `memory` need you to click on the thing
+  itself. While locked, the label is hidden and **no `click`
+  event reaches your page**, not even from a programmatic `el.click()`.
+- Beat the game and the label fades in, a `game-clear` event fires, and
+  from then on it's an ordinary button. It stays unlocked until the
+  simulation is recreated (`resetGame()`, or a new `variant`/`seed`).
+
+```html
+<useless-button variant="flappy">You can fly!</useless-button>
+<useless-button variant="runner" text-fx="slot">Stage clear</useless-button>
+<useless-button variant="timing" text-fx="explode">Perfect timing</useless-button>
+<useless-button variant="crossy" text-fx="ricochet">Why did the chicken…</useless-button>
+<useless-button variant="django" text-fx="slot">Fastest gun in the West</useless-button>
+<useless-button variant="balloon" text-fx="explode">Pop goes the button</useless-button>
+<useless-button variant="memory" text-fx="snake">Total recall</useless-button>
+<useless-button variant="dodge" text-fx="streak">Made it home</useless-button>
+```
+
+| `variant` | Game | To clear |
+|---|---|---|
+| `flappy` (aliases `flappy-bird`, `bird`) | A Flappy Bird-style bird that only rises when you press. | Thread 10 pipe pairs and reach the checkered flag. Hitting a pipe or the ground is a game over. |
+| `runner` (aliases `jump`, `platformer`, `wonderboy`) | A Wonder Boy-style side-scroller: the kid runs forward on their own. | Press to jump each of 10 chasms and reach the flag. Falling in is a game over. Three or four of the ledges between chasms are barely wider than a landing: jump too early before one and you sail past it into the next chasm, and once you're on it the next jump comes right away. |
+| `timing` | A ball sweeps back and forth along a line that has a ring on it. | Press while the ball is inside the ring; the ring then jumps somewhere else. Land 10 hits. Pressing while the ball is outside the ring is a miss, and letting it sweep through the ring 3 times without a press is a time-out. |
+| `crossy` (aliases `crossy-road`, `chicken`) | A Crossy Road-style chicken that has to get from the start on the left to the finish on the right. Every road has cars running up or down it. | Hop across 10 roads. Pressing the right half of the button hops right, the left half hops left. There's a grass rest spot every 3–4 roads, and once you leave the start or reach a rest spot you can't go back past it. Getting hit is a game over, and so is standing still for 6 seconds: an eagle swoops in, with its shadow growing as a warning. |
+| `django` (aliases `western`, `quickdraw`, `shooting`) | A quick-draw shooting gallery in a western town. Each wave, 3–5 targets pop up at random spots, with a fuse burning along the bottom. | Click every target before the fuse runs out. The six-shooter holds 6 rounds per wave, and a miss uses one, so spraying clicks runs you dry. Clear 10 waves. |
+| `balloon` (aliases `balloons`, `pop`) | Balloons drift down from the top, a little faster each time. | Click a balloon 3–5 times to pop it (dots on it show the hits left); each hit also bumps it back up. A balloon touching the ground is a game over. Pop all 10. |
+| `memory` (aliases `match`, `cards`, `concentration`) | 6 or 8 numbered cards, in pairs, are dealt face up for a moment, then turned face down (identical backs). | Click cards to turn them over; every two in a row must be a pair. A mismatch, or running out of time, ends the run. Turn every pair up to win a round; 8-card deals show up from round 4. Win 10 rounds. |
+| `dodge` (aliases `traffic`, `highway`) | A five-lane highway: your car is on the left and traffic closes in from the right. | Press the top half of the button to move up a lane, the bottom half to move down. A sign marks every kilometre; reach the finish at 10 km. Every row of traffic blocks the lane you're in, so sitting still crashes, but always leaves a free lane at most one lane away. |
+
+A row of 10 pips along the top of each game tracks progress. Difficulty is
+defined relative to the button's height, so it doesn't change with the
+canvas's pixel size, but a bigger button is easier to read. Consider
+enlarging game buttons with `::part(button)`:
+
+```css
+useless-button[variant="flappy"]::part(button) { min-width: 260px; min-height: 72px; }
+```
+
+```js
+const el = document.querySelector('useless-button[variant="timing"]');
+el.locked;                                   // true until the game is beaten
+el.addEventListener("game-clear", () => {}); // fires once, on the win
+el.addEventListener("click", () => {});      // only fires once unlocked
+el.resetGame();                              // start over, locked again
+```
+
+### Visual effects
+
 Visual variants are purely ambient: they animate on their own and don't
 react to hovering, pressing or clicking.
 
@@ -98,59 +166,7 @@ react to hovering, pressing or clicking.
 | `supernova` | A boiling star pulses and rotates on a synthetic 144 BPM beat, with sharp zoom kicks and a fiery corona. | No audio input or playback. |
 | `matrix` | Continuous green bitmap code rain with bright leading glyphs and fading tails. | Each column falls at its own speed with its own tail length. |
 
-An unrecognized or misspelled `variant` (`"SWRAM "`, `"boidz"`, ...) never
-throws or renders a broken button — it silently falls back to `swarm`.
-
-## Games
-
-Variants come in two categories. Everything above is a **visual effect**:
-an animated background behind a label that's always there and always
-clickable, and that doesn't react to the pointer. The **game** variants below run a tiny arcade game in the
-background instead, and the button stays *locked* until you beat it:
-
-- The game starts by itself and plays on its own. Left alone, it ends in
-  a game over within a few seconds (a red flash) and restarts.
-- Pressing the button (pointer down, or <kbd>Enter</kbd>/<kbd>Space</kbd>)
-  is the game's input. `crossy` also tells the button's two halves apart:
-  the right half (or <kbd>→</kbd>) moves right, the left half (or <kbd>←</kbd>)
-  moves left. While locked, the label is hidden and **no `click`
-  event reaches your page**, not even from a programmatic `el.click()`.
-- Beat the game and the label fades in, a `game-clear` event fires, and
-  from then on it's an ordinary button. It stays unlocked until the
-  simulation is recreated (`resetGame()`, or a new `variant`/`seed`).
-
-```html
-<useless-button variant="flappy">You can fly!</useless-button>
-<useless-button variant="runner" text-fx="slot">Stage clear</useless-button>
-<useless-button variant="timing" text-fx="explode">Perfect timing</useless-button>
-<useless-button variant="crossy" text-fx="ricochet">Why did the chicken…</useless-button>
-```
-
-| `variant` | Game | To clear |
-|---|---|---|
-| `flappy` (aliases `flappy-bird`, `bird`) | A Flappy Bird-style bird that only rises when you press. | Thread 10 pipe pairs and reach the checkered flag. Hitting a pipe or the ground is a game over. |
-| `runner` (aliases `jump`, `platformer`, `wonderboy`) | A Wonder Boy-style side-scroller: the kid runs forward on their own. | Press to jump each of 10 chasms and reach the flag. Falling in is a game over. Three or four of the ledges between chasms are barely wider than a landing: jump too early before one and you sail past it into the next chasm, and once you're on it the next jump comes right away. |
-| `timing` | A ball sweeps back and forth along a line that has a ring on it. | Press while the ball is inside the ring; the ring then jumps somewhere else. Land 10 hits. Pressing while the ball is outside the ring is a miss, and letting it sweep through the ring 3 times without a press is a time-out. |
-| `crossy` (aliases `crossy-road`, `chicken`) | A Crossy Road-style chicken that has to get from the start on the left to the finish on the right. Every road has cars running up or down it. | Hop across 10 roads. Pressing the right half of the button (or <kbd>→</kbd>) hops right, the left half (or <kbd>←</kbd>) hops left. There's a grass rest spot every 3–4 roads, and once you leave the start or reach a rest spot you can't go back past it. Getting hit is a game over, and so is standing still for 6 seconds: an eagle swoops in, with its shadow growing as a warning. |
-
-A row of 10 pips along the top of each game tracks progress. Difficulty is
-defined relative to the button's height, so it doesn't change with the
-canvas's pixel size, but a bigger button is easier to read. Consider
-enlarging game buttons with `::part(button)`:
-
-```css
-useless-button[variant="flappy"]::part(button) { min-width: 260px; min-height: 72px; }
-```
-
-```js
-const el = document.querySelector('useless-button[variant="timing"]');
-el.locked;                                   // true until the game is beaten
-el.addEventListener("game-clear", () => {}); // fires once, on the win
-el.addEventListener("click", () => {});      // only fires once unlocked
-el.resetGame();                              // start over, locked again
-```
-
-### Cinematic effects
+#### Cinematic effects
 
 Background and text effects can be combined independently:
 
@@ -174,7 +190,7 @@ The cinematic material effects use dedicated palettes (warm accretion light,
 chrome reflections, violet plasma, and cyan holograms) and dark backgrounds.
 They do not use `--ub-paper` as their background color.
 
-### Colors
+#### Colors
 
 The original simulations paint their moving/living/procedural elements with
 random full-spectrum colors (HSV hue drawn from `Rng`, not a
@@ -396,6 +412,10 @@ export default {
   is pinned to `"<label> (locked: clear the game to unlock)"` until it's
   beaten. Under `prefers-reduced-motion: reduce` a game can't be played
   (nothing animates), so game variants start unlocked instead.
+- Games are played with a pointer only. A locked game button still takes
+  keyboard focus, but <kbd>Enter</kbd>/<kbd>Space</kbd> do nothing until
+  it's been beaten with a mouse, pen or finger — keyboard-only users can't
+  unlock one, so don't put anything essential behind a game variant.
 - Off-screen buttons (`IntersectionObserver`) and buttons in a hidden tab
   (`document.visibilitychange`) are excluded from the shared render loop
   entirely, not just throttled.
@@ -517,7 +537,7 @@ clamping. If it's correct natively, it's correct in wasm.
 
 ```
 Cargo.toml, src/            Rust: sims + software rasterizer (no Canvas2D)
-src/sims/games/             Rust: the game variants (flappy, runner, timing)
+src/sims/games/             Rust: the game variants (flappy, runner, timing, crossy, ...)
 src-ts/                     TypeScript: web component, scheduler, wasm glue
 scripts/inline-wasm.mjs     base64-inlines pkg/*.wasm into a TS constant
 examples/preview.rs         renders preview/*.gif from the native lib

@@ -11,6 +11,8 @@ use super::{
 use crate::paint::{Frame, Rgb, Theme};
 use crate::rng::Rng;
 use crate::sims::{Input, Sim};
+#[cfg(test)]
+use crate::sims::Press;
 
 /// Roads between rest columns: always `GOAL` roads in total.
 const ROAD_GROUPS: [[usize; 3]; 3] = [[3, 4, 3], [3, 3, 4], [4, 3, 3]];
@@ -191,8 +193,15 @@ impl Crossy {
     }
 
     fn step_playing(&mut self, dt: f32, input: &Input, rng: &mut Rng) {
-        let left = input.left_clicks.min(input.clicks);
-        let right = input.clicks - left;
+        // Right half hops right, left half hops left.
+        let (mut left, mut right) = (0, 0);
+        for p in input.presses().iter().filter(|p| p.x.is_finite()) {
+            if p.x < 0.5 {
+                left += 1;
+            } else {
+                right += 1;
+            }
+        }
         // Opposite presses in the same tick cancel out, so a double tap
         // on both halves can't skip a column.
         if right > left && self.col + 1 < self.columns.len() {
@@ -415,8 +424,12 @@ mod tests {
     use super::*;
 
     const DT: f32 = 1.0 / 60.0;
-    const RIGHT: Input = Input { clicks: 1, left_clicks: 0 };
-    const LEFT: Input = Input { clicks: 1, left_clicks: 1 };
+    fn right() -> Input {
+        Input::press(0.9, 0.5)
+    }
+    fn left() -> Input {
+        Input::press(0.1, 0.5)
+    }
 
     fn road_count(sim: &Crossy) -> usize {
         sim.columns.iter().filter(|c| matches!(c, Column::Road(_))).count()
@@ -471,8 +484,8 @@ mod tests {
         let plan = (0..cols).rev().find_map(|c| first[HORIZON][c]).unwrap_or(0);
 
         match plan {
-            1 => RIGHT,
-            -1 => LEFT,
+            1 => right(),
+            -1 => left(),
             _ => Input::default(),
         }
     }
@@ -509,22 +522,22 @@ mod tests {
                 lane.cars = [(0.0, CAR_LEN_MIN), (0.1, CAR_LEN_MIN)];
             }
         }
-        sim.step(DT, &LEFT, &mut rng);
+        sim.step(DT, &left(), &mut rng);
         assert_eq!(sim.col, 0);
-        sim.step(DT, &RIGHT, &mut rng);
-        sim.step(DT, &RIGHT, &mut rng);
+        sim.step(DT, &right(), &mut rng);
+        sim.step(DT, &right(), &mut rng);
         assert_eq!(sim.col, 2);
-        sim.step(DT, &LEFT, &mut rng);
+        sim.step(DT, &left(), &mut rng);
         assert_eq!(sim.col, 1);
-        sim.step(DT, &LEFT, &mut rng);
+        sim.step(DT, &left(), &mut rng);
         assert_eq!(sim.col, 1, "hopped back onto the start");
         let rest = sim.columns.iter().position(|c| *c == Column::Rest).unwrap();
         while sim.col < rest + 1 {
-            sim.step(DT, &RIGHT, &mut rng);
+            sim.step(DT, &right(), &mut rng);
         }
-        sim.step(DT, &LEFT, &mut rng);
+        sim.step(DT, &left(), &mut rng);
         assert_eq!(sim.col, rest);
-        sim.step(DT, &LEFT, &mut rng);
+        sim.step(DT, &left(), &mut rng);
         assert_eq!(sim.col, rest, "went left of a rest spot");
         assert_eq!(sim.phase, Phase::Playing);
     }
@@ -533,7 +546,10 @@ mod tests {
     fn a_press_on_both_halves_in_one_tick_goes_nowhere() {
         let mut rng = Rng::new(3);
         let mut sim = Crossy::new(320, 96, &mut rng);
-        sim.step(DT, &Input { clicks: 2, left_clicks: 1 }, &mut rng);
+        let mut both = Input::press(0.9, 0.5);
+        both.clicks = 2;
+        both.at[1] = Press { x: 0.1, y: 0.5 };
+        sim.step(DT, &both, &mut rng);
         assert_eq!(sim.col, 0);
     }
 
@@ -563,7 +579,7 @@ mod tests {
             let mut rng = Rng::new(seed);
             let mut sim = Crossy::new(320, 96, &mut rng);
             for _ in 0..60 * 5 {
-                sim.step(DT, &RIGHT, &mut rng);
+                sim.step(DT, &right(), &mut rng);
                 if matches!(sim.phase, Phase::Over(_)) {
                     hits += 1;
                     break;
@@ -592,7 +608,7 @@ mod tests {
             assert!(sim.cleared(), "seed {seed} never finished");
             assert_eq!(sim.passed(), GOAL);
             for _ in 0..600 {
-                sim.step(DT, &RIGHT, &mut rng);
+                sim.step(DT, &right(), &mut rng);
             }
             assert!(sim.cleared(), "clearing must be permanent");
         }
@@ -605,7 +621,7 @@ mod tests {
         for (w, h) in [(321, 97), (1, 1), (0, 0), (4, 7)] {
             sim.resize(w, h, &mut rng);
             for dt in [f32::NAN, -1.0, 1000.0, DT] {
-                sim.step(dt, &RIGHT, &mut rng);
+                sim.step(dt, &right(), &mut rng);
             }
             let mut frame = Frame::new(w, h);
             sim.render(&mut frame, &Theme::default());

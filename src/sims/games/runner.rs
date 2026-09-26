@@ -471,7 +471,7 @@ mod tests {
             assert!(sim.cleared(), "seed {seed} never cleared");
             assert_eq!(sim.passed, GOAL);
             for _ in 0..600 {
-                sim.step(DT, &Input { clicks: 1, ..Input::default() }, &mut rng);
+                sim.step(DT, &Input::tap(), &mut rng);
             }
             assert!(sim.cleared(), "clearing must be permanent");
         }
@@ -486,7 +486,7 @@ mod tests {
         while sim.chasms[0].x0 - sim.kid_x() > 1.2 {
             sim.step(DT, &Input::default(), &mut rng);
         }
-        sim.step(DT, &Input { clicks: 1, ..Input::default() }, &mut rng);
+        sim.step(DT, &Input::tap(), &mut rng);
         for _ in 0..120 {
             sim.step(DT, &Input::default(), &mut rng);
         }
@@ -500,7 +500,7 @@ mod tests {
         for (w, h) in [(321, 97), (1, 1), (0, 0), (4, 7)] {
             sim.resize(w, h, &mut rng);
             for dt in [f32::NAN, -1.0, 1000.0, DT] {
-                sim.step(dt, &Input { clicks: 1, ..Input::default() }, &mut rng);
+                sim.step(dt, &Input::tap(), &mut rng);
             }
             let mut frame = Frame::new(w, h);
             sim.render(&mut frame, &Theme::default());

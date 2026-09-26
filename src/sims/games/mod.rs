@@ -11,8 +11,12 @@
 //! 1.0 tall and `w / h` wide), so difficulty doesn't depend on how many
 //! device pixels the canvas happens to have.
 
+pub mod balloon;
 pub mod crossy;
+pub mod django;
+pub mod dodge;
 pub mod flappy;
+pub mod memory;
 pub mod runner;
 pub mod timing;
 
@@ -143,6 +147,51 @@ pub fn draw_progress(frame: &mut Frame, done: u32) {
             frame.disc(x, cy, r, Rgb::new(255, 214, 64), 1.0);
         } else {
             frame.disc(x, cy, r, Rgb::new(255, 255, 255), 0.4);
+        }
+    }
+}
+
+/// A thin countdown bar along the bottom edge: full width at `left == 1`,
+/// gone at 0, shading from green to red as it runs out.
+pub fn draw_time_bar(frame: &mut Frame, left: f32) {
+    let u = unit(frame);
+    let left = left.clamp(0.0, 1.0);
+    let h = (u * 0.035).max(1.0);
+    let y = frame.h as f32 - h;
+    let w = frame.w as f32;
+    frame.rect(0.0, y, w, h, Rgb::new(20, 20, 30), 0.45);
+    let c = Rgb::new(230, 60, 50).lerp(Rgb::new(90, 220, 90), left);
+    frame.rect(0.0, y, w * left, h, c, 1.0);
+}
+
+/// 3x5 bitmap digits, one row per `u8`, high bit on the left.
+const DIGITS: [[u8; 5]; 10] = [
+    [0b111, 0b101, 0b101, 0b101, 0b111],
+    [0b010, 0b110, 0b010, 0b010, 0b111],
+    [0b111, 0b001, 0b111, 0b100, 0b111],
+    [0b111, 0b001, 0b111, 0b001, 0b111],
+    [0b101, 0b101, 0b111, 0b001, 0b001],
+    [0b111, 0b100, 0b111, 0b001, 0b111],
+    [0b111, 0b100, 0b111, 0b101, 0b111],
+    [0b111, 0b001, 0b010, 0b010, 0b010],
+    [0b111, 0b101, 0b111, 0b101, 0b111],
+    [0b111, 0b101, 0b111, 0b001, 0b111],
+];
+
+/// Draw `n` in blocky digits centered on `(cx, cy)`, `height` px tall.
+pub fn draw_number(frame: &mut Frame, n: u32, cx: f32, cy: f32, height: f32, c: Rgb) {
+    let digits: Vec<usize> = n.to_string().bytes().map(|b| (b - b'0') as usize).collect();
+    let px = (height / 5.0).max(1.0);
+    let glyph_w = px * 4.0; // 3 columns plus a 1-column gap
+    let left = cx - (glyph_w * digits.len() as f32 - px) * 0.5;
+    let top = cy - px * 2.5;
+    for (i, &d) in digits.iter().enumerate() {
+        for (row, bits) in DIGITS[d].iter().enumerate() {
+            for col in 0..3 {
+                if bits & (0b100 >> col) != 0 {
+                    frame.rect(left + i as f32 * glyph_w + col as f32 * px, top + row as f32 * px, px, px, c, 1.0);
+                }
+            }
         }
     }
 }

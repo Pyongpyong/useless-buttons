@@ -46,6 +46,10 @@ fn main() {
         Variant::Runner,
         Variant::Timing,
         Variant::Crossy,
+        Variant::Django,
+        Variant::Balloon,
+        Variant::Memory,
+        Variant::Dodge,
     ] {
         if std::env::args().nth(1).map_or(true, |name| name == variant.as_str()) {
             render_variant(variant, &out_dir);

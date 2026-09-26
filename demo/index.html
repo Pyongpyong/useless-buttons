@@ -124,23 +124,6 @@
     --ub-ink: #f2f0e9;
     --ub-accent: #ff7a5c;
   }
-
-  .status {
-    font-size: .8rem;
-    opacity: .7;
-    min-height: 1.2em;
-  }
-
-  #click-log {
-    width: min(1280px, 100%);
-    font-size: .8rem;
-    opacity: .8;
-    border: 1px dashed var(--border);
-    border-radius: 10px;
-    padding: .75rem 1rem;
-    max-height: 6rem;
-    overflow-y: auto;
-  }
 </style>
 </head>
 <body>
@@ -243,7 +226,35 @@
       <useless-button variant="crossy" seed="64" text-fx="ricochet">Why did the chicken…</useless-button>
       <code class="fx-value">text-fx="ricochet"</code>
       <p class="game-status" aria-live="polite">🔒 Locked</p>
-      <p>Get the chicken across 10 roads to the finish on the right. Click the right half of the button to hop right, the left half to hop left (or use ← →). Cars run up and down every road, with a grass rest spot every 3–4 roads. Once you leave the start, or reach a rest spot, there's no going back past it. Dawdle for 6 seconds and the eagle gets you.</p>
+      <p>Get the chicken across 10 roads to the finish on the right. Click the right half of the button to hop right, the left half to hop left. Cars run up and down every road, with a grass rest spot every 3–4 roads. Once you leave the start, or reach a rest spot, there's no going back past it. Dawdle for 6 seconds and the eagle gets you.</p>
+    </div>
+    <div class="card">
+      <h3>django</h3>
+      <useless-button variant="django" seed="65" text-fx="slot">Fastest gun in the West</useless-button>
+      <code class="fx-value">text-fx="slot"</code>
+      <p class="game-status" aria-live="polite">🔒 Locked</p>
+      <p>3–5 targets pop up around a western town. Shoot them all before the fuse runs out, with only 6 rounds per wave. Clear 10 waves.</p>
+    </div>
+    <div class="card">
+      <h3>balloon</h3>
+      <useless-button variant="balloon" seed="66" text-fx="explode">Pop goes the button</useless-button>
+      <code class="fx-value">text-fx="explode"</code>
+      <p class="game-status" aria-live="polite">🔒 Locked</p>
+      <p>Balloons drift down. Click each one 3–5 times to pop it (the dots show how many are left); every hit bumps it back up. Don't let one touch the ground. Pop 10.</p>
+    </div>
+    <div class="card">
+      <h3>memory</h3>
+      <useless-button variant="memory" seed="67" text-fx="snake">Total recall</useless-button>
+      <code class="fx-value">text-fx="snake"</code>
+      <p class="game-status" aria-live="polite">🔒 Locked</p>
+      <p>6–8 numbered cards show for a moment, then turn face down. Turn them over two at a time, and each two must be a pair. A mismatch or running out of time ends it. Win 10 rounds.</p>
+    </div>
+    <div class="card">
+      <h3>dodge</h3>
+      <useless-button variant="dodge" seed="68" text-fx="streak">Made it home</useless-button>
+      <code class="fx-value">text-fx="streak"</code>
+      <p class="game-status" aria-live="polite">🔒 Locked</p>
+      <p>Weave through traffic on a 5-lane highway. Click the top half of the button to change lanes up, the bottom half to change down. Signs mark each km; the finish is at 10 km.</p>
     </div>
   </div>
   </section>
@@ -375,9 +386,6 @@
   </div>
   </section>
 
-  <div class="status" id="status">Initializing...</div>
-  <div id="click-log"></div>
-
   <script type="module">
     import { defineUselessButton } from "../dist/index.js";
     // Already auto-defined by importing index.js, but this exercises the
@@ -396,25 +404,6 @@
       if (!settingsMenu.contains(event.target)) settingsMenu.open = false;
     });
 
-    const statusEl = document.getElementById("status");
-    const logEl = document.getElementById("click-log");
-
-    function log(msg) {
-      const line = document.createElement("div");
-      line.textContent = `${new Date().toLocaleTimeString()} — ${msg}`;
-      logEl.prepend(line);
-    }
-
-    window.addEventListener("error", (e) => {
-      statusEl.textContent = `Console error: ${e.message}`;
-      statusEl.style.color = "crimson";
-    });
-
-    document.querySelectorAll("useless-button").forEach((el) => {
-      el.addEventListener("click", () => log(`clicked: variant=${el.getAttribute("variant")}`));
-      el.addEventListener("focus", () => log(`focused: variant=${el.getAttribute("variant")}`));
-    });
-
     function setGameStatus(el) {
       const status = el.closest(".card").querySelector(".game-status");
       status.textContent = el.locked ? "🔒 Locked" : "🔓 Cleared — click away";
@@ -423,10 +412,7 @@
     const gameButtons = document.querySelectorAll(".games useless-button");
     gameButtons.forEach((el) => {
       setGameStatus(el);
-      el.addEventListener("game-clear", () => {
-        setGameStatus(el);
-        log(`game cleared: variant=${el.getAttribute("variant")}`);
-      });
+      el.addEventListener("game-clear", () => setGameStatus(el));
     });
     document.getElementById("relock-games").addEventListener("click", () => {
       gameButtons.forEach((el) => {
@@ -479,8 +465,6 @@
         el.closest(".card").querySelector(".fx-value").textContent = `text-fx="${effect}"`;
       });
     });
-
-    statusEl.textContent = "Loaded — no console errors means everything's working.";
   </script>
 </body>
 </html>

@@ -19,6 +19,7 @@ declare module "../pkg/useless_buttons_core.js" {
     set_theme(paper: number, ink: number, accent: number): void;
     click(): void;
     click_left(): void;
+    press(x: number, y: number): void;
     tick(dt: number): void;
     frame_ptr(): number;
     frame_len(): number;
