@@ -92,9 +92,11 @@ button stays *locked* until you beat it:
   a game over within a few seconds (a red flash) and restarts.
 - Pressing the button with a mouse, pen or finger is the game's input;
   the keyboard doesn't play games. Some games also care *where* you
-  press: `crossy` reads the left/right half, `dodge` the top/bottom half,
-  and `django`, `balloon` and `memory` need you to click on the thing
-  itself. While locked, the label is hidden and **no `click`
+  press: `crossy` and `frog` read the left/right half, `dodge` and
+  `shooter` the top/bottom half, `survivor` walks to wherever you press,
+  and several (`django`, `balloon`, `memory`, `mole`, `numbers`,
+  `rhythm`, `crawler`) need you to click on the thing itself. `heli` is the one game
+  you hold down rather than tap. While locked, the label is hidden and **no `click`
   event reaches your page**, not even from a programmatic `el.click()`.
 - Beat the game and the label fades in, a `game-clear` event fires, and
   from then on it's an ordinary button. It stays unlocked until the
@@ -109,6 +111,18 @@ button stays *locked* until you beat it:
 <useless-button variant="balloon" text-fx="explode">Pop goes the button</useless-button>
 <useless-button variant="memory" text-fx="snake">Total recall</useless-button>
 <useless-button variant="dodge" text-fx="streak">Made it home</useless-button>
+<useless-button variant="breakout" text-fx="explode">Level complete</useless-button>
+<useless-button variant="invaders" text-fx="matrix">Earth is saved</useless-button>
+<useless-button variant="pong" text-fx="ricochet">Game, set, match</useless-button>
+<useless-button variant="mole" text-fx="slot">Whack attack</useless-button>
+<useless-button variant="stack" text-fx="spin">Tower of power</useless-button>
+<useless-button variant="heli" text-fx="streak">Clear skies</useless-button>
+<useless-button variant="numbers" text-fx="slot">In order</useless-button>
+<useless-button variant="rhythm" text-fx="supernova">On beat</useless-button>
+<useless-button variant="survivor" text-fx="explode">Survived the night</useless-button>
+<useless-button variant="frog" text-fx="ricochet">Hop to it</useless-button>
+<useless-button variant="crawler" text-fx="corridor">Dungeon cleared</useless-button>
+<useless-button variant="shooter" text-fx="streak">Mission complete</useless-button>
 ```
 
 | `variant` | Game | To clear |
@@ -121,6 +135,18 @@ button stays *locked* until you beat it:
 | `balloon` (aliases `balloons`, `pop`) | Balloons drift down from the top, a little faster each time. | Click a balloon 3–5 times to pop it (dots on it show the hits left); each hit also bumps it back up. A balloon touching the ground is a game over. Pop all 10. |
 | `memory` (aliases `match`, `cards`, `concentration`) | 6 or 8 numbered cards, in pairs, are dealt face up for a moment, then turned face down (identical backs). | Click cards to turn them over; every two in a row must be a pair. A mismatch, or running out of time, ends the run. Turn every pair up to win a round; 8-card deals show up from round 4. Win 10 rounds. |
 | `dodge` (aliases `traffic`, `highway`) | A five-lane highway: your car is on the left and traffic closes in from the right. | Press the top half of the button to move up a lane, the bottom half to move down. A sign marks every kilometre; reach the finish at 10 km. Every row of traffic blocks the lane you're in, so sitting still crashes, but always leaves a free lane at most one lane away. |
+| `breakout` (aliases `arkanoid`, `bricks`) | Breakout: a ball, a paddle, and two rows of five bricks. | Press anywhere and the paddle slides toward that spot (it doesn't jump there). Where the ball hits the paddle sets its rebound angle. Break all 10 bricks; missing the ball is a game over. |
+| `invaders` (aliases `space-invaders`, `space`) | A Space Invaders-style formation of 10 marches side to side, dropping a row at each edge and speeding up as it thins out. | Press anywhere and your cannon slides under that spot, then fires; one shot in the air at a time. Invaders drop bombs, most of them aimed at you. Shoot all 10; getting bombed, or letting them land, is a game over. |
+| `pong` (aliases `tennis`) | Pong against a slower computer paddle. Every serve comes at you. | Press at a height and your paddle slides there. Where the ball meets your paddle sets its angle, so edge hits send it steep enough to beat the computer. Score 10 points; letting one past you is a game over. |
+| `mole` (aliases `whack-a-mole`, `whack`) | Whack-a-mole over two staggered rows of holes. | Click a mole while it's up. Whack 10 in a row: a single mole getting away is a game over. Moles stay up for less time as you go, and from the 5th whack two can be up at once. |
+| `stack` (aliases `tower`, `stacker`) | A block slides back and forth above a tower; press to drop it. It falls under gravity and keeps all its overhang — nothing is trimmed. | After every landing each joint is checked: if the blocks above it have their center of mass past the edge of what holds them up, that part of the tower tips over the edge and falls, which is a game over (so is missing the tower). Stack 10. Wait 4 seconds and the block slips off the far end of its track on its own. |
+| `heli` (aliases `helicopter`, `cave`) | The helicopter-in-a-cave game: a winding cave that narrows as you go. | Hold the button to climb, let go to sink. Touching a wall is a game over. Fly through 10 checkpoint gates. |
+| `numbers` (aliases `number-order`, `sequence`) | Numbered circles scattered across the button, 4 per round growing to 8. | Press them in order, 1 first, before the time bar runs out. A wrong number, or running out of time, ends the run. Win 10 rounds. |
+| `rhythm` (aliases `rhythm-hero`, `osu`, `beat`) | An osu!-style hit-circle game: each screen brings 3–5 numbered circles on a beat, which quickens as you go. | Press each circle as the ring shrinking onto it closes. Too early, too late, or not at all is a miss and ends the run. Clear 10 screens. |
+| `survivor` (aliases `survivors`, `vampire`) | A Vampire Survivors-style arena: your hero fires a ring of shots in every direction on its own while bats swarm in from every edge, more and faster over time. | Press anywhere and the hero walks there. One touch from a bat is a game over. Collect 10 gems, which appear one at a time. Stand still for 8 seconds and the Reaper appears: it can't be shot and chases you until you move again. |
+| `frog` (aliases `frogger`, `lilypad`) | A Frogger-style river crossing in the same left-to-right layout as `crossy`: lily pads drift up or down every river, with a grassy bank every 3–4 rivers. | Right half of the button hops right, left half hops left; you ride whatever pad you land on, and on a bank the frog wanders back to the middle. Landing in the water, or riding a pad off the edge, is a game over, and you can't go back past the start or a bank. Cross 10 rivers; stand still for 12 seconds and the heron gets you. |
+| `crawler` (aliases `dungeon-crawl`, `monster-hunt`) | A first-person dungeon crawl on the `dungeon` raycaster: the camera explores the maze on its own until a monster steps into the corridor ahead. | Click a monster's head to drop it in one hit, or its body three times (pips over its head count down), before it reaches you. 10 monsters; the last is a bigger, horned one standing in front of the exit portal. |
+| `shooter` (aliases `shmup`, `gradius`) | A side-scrolling shoot-'em-up: your fighter sits on the left and fires twin shots on its own. | Press the top half of the button to climb a step, the bottom half to dive one. Drones can be shot down; meteors can't, and come at whatever height you're flying. Touching either is a game over. Reach the finish line (the pips track the distance). |
 
 A row of 10 pips along the top of each game tracks progress. Difficulty is
 defined relative to the button's height, so it doesn't change with the

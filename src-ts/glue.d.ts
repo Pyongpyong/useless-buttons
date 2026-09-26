@@ -20,6 +20,7 @@ declare module "../pkg/useless_buttons_core.js" {
     click(): void;
     click_left(): void;
     press(x: number, y: number): void;
+    hold(down: boolean): void;
     tick(dt: number): void;
     frame_ptr(): number;
     frame_len(): number;

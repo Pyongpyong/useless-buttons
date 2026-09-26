@@ -87,6 +87,12 @@ impl UselessButton {
         self.press(0.0, f32::NAN);
     }
 
+    /// Whether a pointer is currently held down on the button (game
+    /// input). Stays as set until changed.
+    pub fn hold(&mut self, down: bool) {
+        self.input.held = down;
+    }
+
     /// Register a press at `(x, y)`, each a fraction (`0..=1`) of the
     /// canvas' width/height from its top-left corner. Pass NaN for an
     /// axis the press has no position on.
@@ -103,7 +109,8 @@ impl UselessButton {
     pub fn tick(&mut self, dt: f32) {
         self.sim.step(dt, &self.input, &mut self.rng);
         self.sim.render(&mut self.frame, &self.theme);
-        self.input = Input::default();
+        // Presses are consumed; whether the pointer is held carries over.
+        self.input = Input { held: self.input.held, ..Input::default() };
     }
 
     /// Pointer to the start of the RGBA pixel buffer in wasm linear
@@ -147,7 +154,7 @@ mod tests {
 
     #[test]
     fn constructs_and_ticks_for_every_variant() {
-        for name in ["swarm", "sand", "life", "fractal", "bounce", "dungeon", "starry", "voronoi", "hyperdrive", "tunnel", "matrix", "blackhole", "chrome", "plasma", "stained-glass", "aurora", "ripple", "hologram", "supernova", "flappy", "runner", "timing", "crossy", "django", "balloon", "memory", "dodge"] {
+        for name in ["swarm", "sand", "life", "fractal", "bounce", "dungeon", "starry", "voronoi", "hyperdrive", "tunnel", "matrix", "blackhole", "chrome", "plasma", "stained-glass", "aurora", "ripple", "hologram", "supernova", "flappy", "runner", "timing", "crossy", "django", "balloon", "memory", "dodge", "breakout", "invaders", "pong", "mole", "stack", "heli", "numbers", "rhythm", "survivor", "frog", "crawler", "shooter"] {
             let mut ub = UselessButton::new(name, 320, 96, 1);
             assert_eq!(ub.variant(), name);
             for _ in 0..10 {
@@ -161,7 +168,7 @@ mod tests {
 
     #[test]
     fn only_games_start_locked() {
-        for name in ["flappy", "runner", "timing", "crossy", "django", "balloon", "memory", "dodge"] {
+        for name in ["flappy", "runner", "timing", "crossy", "django", "balloon", "memory", "dodge", "breakout", "invaders", "pong", "mole", "stack", "heli", "numbers", "rhythm", "survivor", "frog", "crawler", "shooter"] {
             let ub = UselessButton::new(name, 320, 96, 1);
             assert!(ub.is_game() && !ub.cleared(), "{name}");
         }

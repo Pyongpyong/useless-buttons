@@ -462,6 +462,42 @@ impl Dungeon {
         RayHit { dist, cell_x: map_x, cell_y: map_y, stepped_y, wall_u, dir_x, dir_y }
     }
 
+    // --- Read-only hooks for the `crawler` game, which walks this same
+    // maze and draws monsters over it.
+
+    /// Camera position (cells) and view angle (radians).
+    pub(crate) fn pose(&self) -> (f32, f32, f32) {
+        (self.cam_x, self.cam_y, self.view_angle)
+    }
+
+    /// The grid step the camera is walking along, once it has finished
+    /// turning to face it.
+    pub(crate) fn heading(&self) -> Option<(i32, i32)> {
+        if angle_diff(self.move_angle, self.view_angle).abs() > TURN_SETTLE_RAD {
+            return None;
+        }
+        Some((self.move_angle.cos().round() as i32, self.move_angle.sin().round() as i32))
+    }
+
+    pub(crate) fn is_open(&self, x: i32, y: i32) -> bool {
+        !self.is_wall(x, y)
+    }
+
+    /// Distance to the nearest wall along `angle`, in cells.
+    pub(crate) fn ray_dist(&self, angle: f32) -> f32 {
+        self.cast_ray(angle).dist
+    }
+
+    /// Horizontal field of view, radians.
+    pub(crate) fn fov() -> f32 {
+        FOV_DEG.to_radians()
+    }
+
+    /// Screen height of a wall one cell away, as a fraction of the frame.
+    pub(crate) fn wall_height_scale() -> f32 {
+        WALL_HEIGHT_SCALE
+    }
+
     /// Look up the color for the wall face a ray hit: which *run* it
     /// belongs to depends on which orientation of face was hit
     /// (`stepped_y`) — see `label_wall_runs`.

@@ -12,12 +12,24 @@
 //! device pixels the canvas happens to have.
 
 pub mod balloon;
+pub mod breakout;
+pub mod crawler;
 pub mod crossy;
 pub mod django;
 pub mod dodge;
 pub mod flappy;
+pub mod frog;
+pub mod heli;
+pub mod invaders;
 pub mod memory;
+pub mod mole;
+pub mod numbers;
+pub mod pong;
+pub mod rhythm;
 pub mod runner;
+pub mod shooter;
+pub mod stack;
+pub mod survivor;
 pub mod timing;
 
 use crate::paint::{Frame, Rgb};
@@ -191,6 +203,40 @@ pub fn draw_number(frame: &mut Frame, n: u32, cx: f32, cy: f32, height: f32, c: 
                 if bits & (0b100 >> col) != 0 {
                     frame.rect(left + i as f32 * glyph_w + col as f32 * px, top + row as f32 * px, px, px, c, 1.0);
                 }
+            }
+        }
+    }
+}
+
+/// Draw a 1-bit sprite with its top-left at `(x, y)`: one `u16` per
+/// row, bit `width - 1` on the left, each bit `px` pixels square.
+pub fn draw_sprite(frame: &mut Frame, rows: &[u16], width: usize, x: f32, y: f32, px: f32, c: Rgb) {
+    for (r, bits) in rows.iter().enumerate() {
+        for col in 0..width {
+            if bits & (1 << (width - 1 - col)) != 0 {
+                frame.rect(x + col as f32 * px, y + r as f32 * px, px, px, c, 1.0);
+            }
+        }
+    }
+}
+
+/// Fill a convex quadrilateral given its corners in order (either
+/// winding), clipped to the frame. Used for tilted blocks.
+pub fn fill_quad(frame: &mut Frame, pts: [(f32, f32); 4], c: Rgb) {
+    if pts.iter().any(|p| !p.0.is_finite() || !p.1.is_finite()) {
+        return;
+    }
+    let x0 = pts.iter().map(|p| p.0).fold(f32::INFINITY, f32::min).floor().max(0.0) as usize;
+    let x1 = (pts.iter().map(|p| p.0).fold(f32::NEG_INFINITY, f32::max).ceil().max(0.0) as usize).min(frame.w);
+    let y0 = pts.iter().map(|p| p.1).fold(f32::INFINITY, f32::min).floor().max(0.0) as usize;
+    let y1 = (pts.iter().map(|p| p.1).fold(f32::NEG_INFINITY, f32::max).ceil().max(0.0) as usize).min(frame.h);
+    let cross = |a: (f32, f32), b: (f32, f32), p: (f32, f32)| (b.0 - a.0) * (p.1 - a.1) - (b.1 - a.1) * (p.0 - a.0);
+    for py in y0..y1 {
+        for px in x0..x1 {
+            let p = (px as f32 + 0.5, py as f32 + 0.5);
+            let signs: Vec<f32> = (0..4).map(|i| cross(pts[i], pts[(i + 1) % 4], p)).collect();
+            if signs.iter().all(|&s| s >= 0.0) || signs.iter().all(|&s| s <= 0.0) {
+                frame.blend_pixel(px as i64, py as i64, c, 1.0);
             }
         }
     }
