@@ -1,8 +1,8 @@
 //! Timing: a ring sits on a line and a ball sweeps back and forth along
 //! it. Click while the ball is inside the ring to score — the ring then
-//! jumps somewhere else. Ten hits clear it. Clicking while the ball is
-//! outside is a miss, and letting the ball sweep through the ring
-//! `PASSES` times without clicking also ends the run.
+//! jumps somewhere else. Ten hits clear it. There's one chance per ring:
+//! clicking while the ball is outside is a miss, and so is letting the
+//! ball sweep through the ring without clicking.
 use super::{
     draw_cleared_flash, draw_game_over, draw_progress, ring, sanitize_dt, substeps, unit,
     vgradient, Confetti, Phase, GOAL,
@@ -22,8 +22,8 @@ const MARGIN: f32 = 0.25;
 const BASE_SPEED: f32 = 1.3;
 /// Extra speed per hit, so the last few are the hardest.
 const SPEED_PER_HIT: f32 = 0.09;
-/// Sweeps through the ring allowed before the run times out.
-const PASSES: u32 = 3;
+/// Sweeps through the ring allowed before the run times out: one.
+const PASSES: u32 = 1;
 /// A new ring must land at least this far (in units) from the ball.
 const RESPAWN_MIN_DIST: f32 = 0.55;
 
@@ -241,13 +241,6 @@ impl Sim for Timing {
             let cyan = Rgb::new(80, 230, 255);
             frame.disc(tx, y, TARGET_R * u, cyan, if ball_in { 0.4 } else { 0.12 });
             ring(frame, tx, y, TARGET_R * u, (u * 0.03).max(1.0), cyan, 1.0);
-            // Remaining sweeps before a timeout, under the ring.
-            let dot = (u * 0.018).max(1.0);
-            for i in 0..PASSES {
-                let dx = (i as f32 - (PASSES - 1) as f32 * 0.5) * dot * 3.0;
-                let lit = i < self.passes_left;
-                frame.disc(tx + dx, y + (TARGET_R + 0.07) * u, dot, cyan, if lit { 0.9 } else { 0.2 });
-            }
         }
         for p in &self.pulses {
             let t = p.age / 0.6;
@@ -308,7 +301,21 @@ mod tests {
             was_over = over;
             assert!(!sim.cleared());
         }
-        assert!(timeouts >= 2, "only {timeouts} timeouts");
+        assert!(timeouts >= 5, "only {timeouts} timeouts");
+    }
+
+    #[test]
+    fn letting_the_ball_through_the_ring_once_ends_the_run() {
+        let mut rng = Rng::new(5);
+        let mut sim = Timing::new(320, 96, &mut rng);
+        while !sim.ball_inside() {
+            sim.step(DT, &Input::default(), &mut rng);
+        }
+        while sim.ball_inside() {
+            assert_eq!(sim.phase, Phase::Playing);
+            sim.step(DT, &Input::default(), &mut rng);
+        }
+        assert!(matches!(sim.phase, Phase::Over(_)));
     }
 
     #[test]
