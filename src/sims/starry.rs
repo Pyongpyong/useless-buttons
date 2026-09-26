@@ -102,10 +102,6 @@ const FLOW_SPAWN_R_MAX: f32 = 2.3;
 /// stroke doesn't pop.
 const FLOW_FADE_SEC: f32 = 0.45;
 
-/// Hovering speeds up the swirls near the cursor, clicking flips every
-/// swirl's direction at once.
-const HOVER_R: f32 = 70.0;
-const HOVER_SPIN_MULT: f32 = 3.2;
 const MAX_DT: f32 = 1.0 / 20.0;
 
 #[derive(Clone, Copy)]
@@ -371,7 +367,7 @@ impl Sim for Starry {
         }
     }
 
-    fn step(&mut self, dt: f32, input: &Input, rng: &mut Rng) {
+    fn step(&mut self, dt: f32, _: &Input, rng: &mut Rng) {
         let dt = if dt.is_finite() { dt.clamp(0.0, MAX_DT) } else { 0.0 };
         if dt <= 0.0 || self.swirls.is_empty() || self.w <= 0.0 || self.h <= 0.0 {
             return;
@@ -394,27 +390,8 @@ impl Sim for Starry {
             self.flow[i].age = f.age + dt;
         }
 
-        // A click sends the whole sky the other way round.
-        if input.clicks > 0 {
-            for s in &mut self.swirls {
-                s.spin = -s.spin;
-            }
-        }
-
         for s in &mut self.swirls {
-            let mut rate = s.spin;
-            if input.hover {
-                let dx = s.x - input.x;
-                let dy = s.y - input.y;
-                let d = (dx * dx + dy * dy).sqrt();
-                if d < HOVER_R {
-                    // Ramps up towards the cursor rather than switching on
-                    // at the boundary, so there's no visible ring.
-                    let t = 1.0 - d / HOVER_R;
-                    rate *= 1.0 + (HOVER_SPIN_MULT - 1.0) * t;
-                }
-            }
-            s.angle = (s.angle + rate * dt).rem_euclid(TAU);
+            s.angle = (s.angle + s.spin * dt).rem_euclid(TAU);
 
             // Breathe in place. The star never leaves the spot it was
             // placed on — see `PULSE_AMP`.
@@ -728,23 +705,10 @@ mod tests {
     }
 
     #[test]
-    fn click_reverses_every_swirl() {
-        let mut rng = Rng::new(4);
-        let mut sim = make(320, 96, 4);
-        let before = sim.spins();
-        let input = Input { x: 0.0, y: 0.0, hover: false, down: false, clicks: 1 };
-        sim.step(1.0 / 60.0, &input, &mut rng);
-        let after = sim.spins();
-        for (a, b) in before.iter().zip(after.iter()) {
-            assert!((a + b).abs() < 1e-5, "spin {a} did not reverse (got {b})");
-        }
-    }
-
-    #[test]
     fn swirls_stay_on_canvas_and_finite() {
         let mut rng = Rng::new(5);
         let mut sim = make(320, 96, 5);
-        let input = Input { x: 100.0, y: 40.0, hover: true, down: false, clicks: 0 };
+        let input = Input::default();
         for _ in 0..3000 {
             sim.step(1.0 / 60.0, &input, &mut rng);
         }

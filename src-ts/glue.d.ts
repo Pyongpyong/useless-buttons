@@ -17,12 +17,14 @@ declare module "../pkg/useless_buttons_core.js" {
     constructor(variant: string, w: number, h: number, seed: number);
     resize(w: number, h: number): void;
     set_theme(paper: number, ink: number, accent: number): void;
-    pointer(x: number, y: number, hover: boolean, down: boolean): void;
     click(): void;
+    click_left(): void;
     tick(dt: number): void;
     frame_ptr(): number;
     frame_len(): number;
     preferred_fps(): number;
+    is_game(): boolean;
+    cleared(): boolean;
     variant(): string;
     /** Frees the wasm-side allocation. Must be called exactly once. */
     free(): void;

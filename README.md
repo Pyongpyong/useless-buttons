@@ -7,10 +7,11 @@
 
 Each `<useless-button>` is a real, focusable, form-participating
 `<button>` whose background is a live Rust/wasm simulation — a boid
-swarm, falling sand, Conway's Game of Life, a cursor-chasing Mandelbrot
+swarm, falling sand, Conway's Game of Life, an endless Mandelbrot
 zoom, a bouncing-pixel collision chamber, a first-person maze crawl, a
 sky of rotating Van Gogh swirls, a Voronoi diagram over drifting
-points, or a jump to lightspeed — rendered straight into the button's own canvas. Ships as a
+points, or a jump to lightspeed — rendered straight into the button's own canvas. Or it's a
+tiny arcade game you have to beat before the button even shows its label. Ships as a
 dependency-free Web Component, so it works in React, Vue, Svelte, or a
 plain `.html` file identically.
 
@@ -72,30 +73,82 @@ defineUselessButton("my-button"); // registers an additional alias tag
 
 ## Variants
 
-| `variant`  | What it does | Interactions |
+Visual variants are purely ambient: they animate on their own and don't
+react to hovering, pressing or clicking.
+
+| `variant`  | What it does | Behavior |
 |---|---|---|
-| `swarm` (default, and the fallback for unknown/misspelled values) | A dense flock of boids (separation/alignment/cohesion) computed on a spatial grid | Hover: cursor acts as a predator that pushes boids away. Press: fear increases. Click: a short panic burst raises speed and repulsion. |
-| `sand` | A falling-sand cellular automaton, chunky 5-device-px grains | Rains in continuously on its own. Press-and-hold: extra trickle at the cursor. Click: drops a pile. Once every cell is filled, the complete pile stays visible for half a second, then resets and starts filling again in the next color. |
-| `life` | Conway's Game of Life, 2 device px per cell, toroidal, advancing at a fixed ~36 generations/sec (3x faster while hovering) regardless of render rate | Whenever cells die off, new clustered seeds sprout elsewhere on the board — population stays lively instead of dwindling to almost nothing. Hover: gentle continuous seeding under the cursor too, not just on click. Click: a bigger seed splash around the cursor. |
-| `fractal` | A Mandelbrot explorer, computed at half resolution and upscaled 2×2, `f64` coordinates, adaptive iteration count | Zoom only ever increases — even fully idle it keeps deepening on its own; hovering steers the center towards the cursor and roughly doubles the rate. Continuous boundary-detail probing nudges the view away from flat/boring (solid interior or empty space) patches, and relocates to a new hand-picked coordinate if one is crossed anyway — the fractal never dead-ends on a blank screen. Click: jump straight to the next coordinate. |
-| `bounce` | Dozens of pixels bouncing around a fully elastic collision chamber, changing both direction and a genuinely random full-spectrum color on every wall or pixel-pixel hit | Purely ambient — no pointer interaction. The background is never cleared or faded: only the particles' current positions get painted, so every pass any pixel has ever taken through the canvas stays visible as a permanent trail. |
-| `dungeon` | A first-person raycaster (DDA, Wolfenstein/DOOM-style) through a 47×35 procedurally-carved maze. Walls are brick, in running bond, and colored by which way they run as seen from above — north-south walls warm/red, east-west ones cool/blue — with each straight run taking its own hue from that family, so a corridor holds one color along its length and every corner is a visible break. Floor and ceiling are cast per pixel into square tiles, the ceiling's twice the size of the floor's, both fading out with distance | Purely ambient — no pointer interaction. Walks center-to-center on autopilot forever, turning in place at each cell before moving on, picking a new open direction at every junction and reversing only at dead ends. The maze is deliberately far larger than what's visible so it roams instead of pacing the same few corridors. |
-| `starry` | *Starry Night*, more or less: at least eight multi-armed spirals, each drawn as a chain of tapering strokes from a hot white core out to cool blue tips. They stay put and breathe — turning at their own rate, half of them the other way round, pulsing between roughly 0.6x and 1.4x their size — rather than drifting, since a swirl wandering off its spot reads as one star vanishing and another appearing. The sky between them streams: short brush strokes ride a slowly-churning flow field, each one belonging to a particular star and reborn around it, so the current comes out of the stars. Placement is best-candidate sampling at each swirl's *peak* size, because uniform random clumps and a clump of spirals reads as one blob | Hover: swirls near the cursor spin up to ~3x, ramped by distance so there's no visible boundary. Click: reverses every swirl at once. |
-| `voronoi` | A Voronoi diagram over drifting sites, each cell filled with its own random color. Every pixel is simply colored by its nearest site, so the cell boundaries fall out of the coloring rather than being built as geometry — no edge list to keep consistent while the sites move. Sampled at half resolution, since the cost is sites × pixels | Hover: the cursor joins in as one more site, carving its own cell out of whatever it's standing on. Click: re-rolls every cell's color. |
-| `hyperdrive` | The jump to lightspeed, on a loop. Several hundred stars in a 3D field under perspective projection, with the camera falling *away* from them, so growing depth shrinks `x / z` and each star rushes inward and is swallowed by the vanishing point. Each is drawn as the streak between where it was and where it is, and the smear grows with the drive as well as with its speed — so at the punch the lines stretch until they fill the frame, rather than merely moving faster. Runs as a cycle (near-still field, spool-up, punch, white flash), because standing at full speed forever loses the acceleration the shot is built on | Hover: skips the idle stretch and spools up early. Click: punches straight to the jump. |
-| `tunnel` | A neon dimension tunnel with glowing rings, twisting rails, rainbow depth shading and a dark vanishing point. Rendered at half resolution with bounded work per pixel. | Hover: steer the vanishing point. Hold: accelerate. Click: speed burst and a new color dimension. |
-| `blackhole` | A fast elliptical camera orbit dives toward an accretion disk, rolls around it and pulls away. Click to collapse and restore the horizon. | Hold to increase animation speed. |
-| `chrome` | Liquid metal reflects moving cyan and magenta light. Hover to bend reflections; click for a metallic ripple. | Hold to increase animation speed. |
-| `plasma` | Branching electric filaments converge near the cursor. Click to intensify the discharge. | Hold to increase animation speed. |
-| `stained-glass` | Shared junctions drift inside a fixed frame, reshaping the colored triangular panes with no whole-sheet rotation or zoom. Click to scatter the shards and watch them reassemble. | Hold to increase animation speed. |
-| `aurora` | Layered green and violet curtains ripple across the sky. Hover to steer; click for an expanding storm. | Hold to increase animation speed. |
-| `ripple` | Caustic light dances across dark water. Click to launch ripples from the cursor. | Hold to increase animation speed. |
-| `hologram` | Rotating wireframe slices float above a scan grid. Click to expand the projection. | Hold to increase animation speed. |
-| `supernova` | A boiling star pulses and rotates on a synthetic 144 BPM beat, with sharp zoom kicks and a fiery corona. Click for an extra shockwave. | Hold to increase animation speed. |
-| `matrix` | Continuous green bitmap code rain with bright leading glyphs and fading tails. | Hover: brighten nearby columns. Hold or click: accelerate the rain. |
+| `swarm` (default, and the fallback for unknown/misspelled values) | A dense flock of boids (separation/alignment/cohesion) computed on a spatial grid | Each boid wanders on its own slowly-turning heading, so the flock keeps splitting and regrouping instead of locking onto one direction. |
+| `sand` | A falling-sand cellular automaton, chunky 5-device-px grains | Rains in continuously on its own. Once every cell is filled, the complete pile stays visible for half a second, then resets and starts filling again in the next color. |
+| `life` | Conway's Game of Life, 2 device px per cell, toroidal, advancing at a fixed ~36 generations/sec regardless of render rate | Whenever cells die off, new clustered seeds sprout elsewhere on the board — population stays lively instead of dwindling to almost nothing. |
+| `fractal` | A Mandelbrot explorer, computed at half resolution and upscaled 2×2, `f64` coordinates, adaptive iteration count | Zoom only ever increases, deepening at a slow, steady rate. Continuous boundary-detail probing nudges the view away from flat/boring (solid interior or empty space) patches, and relocates to a new hand-picked coordinate if one is crossed anyway — the fractal never dead-ends on a blank screen. |
+| `bounce` | Dozens of pixels bouncing around a fully elastic collision chamber, changing both direction and a genuinely random full-spectrum color on every wall or pixel-pixel hit | The background is never cleared or faded: only the particles' current positions get painted, so every pass any pixel has ever taken through the canvas stays visible as a permanent trail. |
+| `dungeon` | A first-person raycaster (DDA, Wolfenstein/DOOM-style) through a 47×35 procedurally-carved maze. Walls are brick, in running bond, and colored by which way they run as seen from above — north-south walls warm/red, east-west ones cool/blue — with each straight run taking its own hue from that family, so a corridor holds one color along its length and every corner is a visible break. Floor and ceiling are cast per pixel into square tiles, the ceiling's twice the size of the floor's, both fading out with distance | Walks center-to-center on autopilot forever, turning in place at each cell before moving on, picking a new open direction at every junction and reversing only at dead ends. The maze is deliberately far larger than what's visible so it roams instead of pacing the same few corridors. |
+| `starry` | *Starry Night*, more or less: at least eight multi-armed spirals, each drawn as a chain of tapering strokes from a hot white core out to cool blue tips. They stay put and breathe — turning at their own rate, half of them the other way round, pulsing between roughly 0.6x and 1.4x their size — rather than drifting, since a swirl wandering off its spot reads as one star vanishing and another appearing. The sky between them streams: short brush strokes ride a slowly-churning flow field, each one belonging to a particular star and reborn around it, so the current comes out of the stars. Placement is best-candidate sampling at each swirl's *peak* size, because uniform random clumps and a clump of spirals reads as one blob | Half the swirls turn clockwise and half anticlockwise, each at its own rate. |
+| `voronoi` | A Voronoi diagram over drifting sites, each cell filled with its own random color. Every pixel is simply colored by its nearest site, so the cell boundaries fall out of the coloring rather than being built as geometry — no edge list to keep consistent while the sites move. Sampled at half resolution, since the cost is sites × pixels | Sites bounce off the edges rather than wrapping, so no cell ever jumps across the canvas. |
+| `hyperdrive` | The jump to lightspeed, on a loop. Several hundred stars in a 3D field under perspective projection, with the camera falling *away* from them, so growing depth shrinks `x / z` and each star rushes inward and is swallowed by the vanishing point. Each is drawn as the streak between where it was and where it is, and the smear grows with the drive as well as with its speed — so at the punch the lines stretch until they fill the frame, rather than merely moving faster. Runs as a cycle (near-still field, spool-up, punch, white flash), because standing at full speed forever loses the acceleration the shot is built on | Loops forever: idle, spool-up, punch, flash. |
+| `tunnel` | A neon dimension tunnel with glowing rings, twisting rails, rainbow depth shading and a dark vanishing point. Rendered at half resolution with bounded work per pixel. | Travels and twists at a steady pace. |
+| `blackhole` | A fast elliptical camera orbit dives toward an accretion disk, rolls around it and pulls away. | Camera zoom and roll ride the orbit. |
+| `chrome` | Liquid metal reflects moving cyan and magenta light. | Gentle camera zoom and roll. |
+| `plasma` | Branching electric filaments converge on a glowing core. | Gentle camera zoom and roll. |
+| `stained-glass` | Shared junctions drift inside a fixed frame, reshaping the colored triangular panes with no whole-sheet rotation or zoom. | 48 persistent triangular shards. |
+| `aurora` | Layered green and violet curtains ripple across the sky. | Gentle camera zoom and roll. |
+| `ripple` | Caustic light dances across dark water. | Gentle camera zoom and roll. |
+| `hologram` | Rotating wireframe slices float above a scan grid. | Gentle camera zoom and roll. |
+| `supernova` | A boiling star pulses and rotates on a synthetic 144 BPM beat, with sharp zoom kicks and a fiery corona. | No audio input or playback. |
+| `matrix` | Continuous green bitmap code rain with bright leading glyphs and fading tails. | Each column falls at its own speed with its own tail length. |
 
 An unrecognized or misspelled `variant` (`"SWRAM "`, `"boidz"`, ...) never
 throws or renders a broken button — it silently falls back to `swarm`.
+
+## Games
+
+Variants come in two categories. Everything above is a **visual effect**:
+an animated background behind a label that's always there and always
+clickable, and that doesn't react to the pointer. The **game** variants below run a tiny arcade game in the
+background instead, and the button stays *locked* until you beat it:
+
+- The game starts by itself and plays on its own. Left alone, it ends in
+  a game over within a few seconds (a red flash) and restarts.
+- Pressing the button (pointer down, or <kbd>Enter</kbd>/<kbd>Space</kbd>)
+  is the game's input. `crossy` also tells the button's two halves apart:
+  the right half (or <kbd>→</kbd>) moves right, the left half (or <kbd>←</kbd>)
+  moves left. While locked, the label is hidden and **no `click`
+  event reaches your page**, not even from a programmatic `el.click()`.
+- Beat the game and the label fades in, a `game-clear` event fires, and
+  from then on it's an ordinary button. It stays unlocked until the
+  simulation is recreated (`resetGame()`, or a new `variant`/`seed`).
+
+```html
+<useless-button variant="flappy">You can fly!</useless-button>
+<useless-button variant="runner" text-fx="slot">Stage clear</useless-button>
+<useless-button variant="timing" text-fx="explode">Perfect timing</useless-button>
+<useless-button variant="crossy" text-fx="ricochet">Why did the chicken…</useless-button>
+```
+
+| `variant` | Game | To clear |
+|---|---|---|
+| `flappy` (aliases `flappy-bird`, `bird`) | A Flappy Bird-style bird that only rises when you press. | Thread 10 pipe pairs and reach the checkered flag. Hitting a pipe or the ground is a game over. |
+| `runner` (aliases `jump`, `platformer`, `wonderboy`) | A Wonder Boy-style side-scroller: the kid runs forward on their own. | Press to jump each of 10 chasms and reach the flag. Falling in is a game over. Three or four of the ledges between chasms are barely wider than a landing: jump too early before one and you sail past it into the next chasm, and once you're on it the next jump comes right away. |
+| `timing` | A ball sweeps back and forth along a line that has a ring on it. | Press while the ball is inside the ring; the ring then jumps somewhere else. Land 10 hits. Pressing while the ball is outside the ring is a miss, and letting it sweep through the ring 3 times without a press is a time-out. |
+| `crossy` (aliases `crossy-road`, `chicken`) | A Crossy Road-style chicken that has to get from the start on the left to the finish on the right. Every road has cars running up or down it. | Hop across 10 roads. Pressing the right half of the button (or <kbd>→</kbd>) hops right, the left half (or <kbd>←</kbd>) hops left. There's a grass rest spot every 3–4 roads, and once you leave the start or reach a rest spot you can't go back past it. Getting hit is a game over, and so is standing still for 6 seconds: an eagle swoops in, with its shadow growing as a warning. |
+
+A row of 10 pips along the top of each game tracks progress. Difficulty is
+defined relative to the button's height, so it doesn't change with the
+canvas's pixel size, but a bigger button is easier to read. Consider
+enlarging game buttons with `::part(button)`:
+
+```css
+useless-button[variant="flappy"]::part(button) { min-width: 260px; min-height: 72px; }
+```
+
+```js
+const el = document.querySelector('useless-button[variant="timing"]');
+el.locked;                                   // true until the game is beaten
+el.addEventListener("game-clear", () => {}); // fires once, on the win
+el.addEventListener("click", () => {});      // only fires once unlocked
+el.resetGame();                              // start over, locked again
+```
 
 ### Cinematic effects
 
@@ -111,8 +164,7 @@ The eight material backgrounds target 60 fps, with faster shading animation and
 camera zoom/roll on the shaded effects and moving junctions inside a fixed frame
 for stained glass. Supernova uses a synthetic 144 BPM visual beat
 (no audio input or playback). Procedural shading uses adaptive
-pixel blocks; stained glass uses 48 persistent triangular shards. Click reactions
-last about two seconds and can be retriggered. Text effects use the existing
+pixel blocks; stained glass uses 48 persistent triangular shards. Text effects use the existing
 shared scheduler and accessible-label handling, and stop with reduced motion.
 Use light label colors on these predominantly dark backgrounds. Each demo card pairs a background with its own text effect and displays the
 `text-fx` value below the button. The menu can override all effects or restore
@@ -140,12 +192,18 @@ label's own text color instead (see below).
 |---|---|---|---|
 | `variant` | `.variant` | `"swarm"` | Case/whitespace-tolerant. Changing it at runtime tears down and recreates the simulation. |
 | `seed` | `.seed` | `1` | Unsigned 32-bit PRNG seed. Same seed + same size ⇒ identical animation. Changing it recreates the simulation. |
-| `fps` | `.fps` | the variant's `preferred_fps` (currently 60 for all nine) | Caps how often the simulation is stepped, independent of the shared render loop's own rate. |
+| `fps` | `.fps` | the variant's `preferred_fps` (currently 60 for every variant) | Caps how often the simulation is stepped, independent of the shared render loop's own rate. |
 | `disabled` | `.disabled` | absent | Reflects onto the real, inner `<button disabled>` — native disabled semantics apply (no clicks, no focus, no form submission). |
 | `text-fx` | `.textFx` | `"spin"` | Decorative label animation — see below. Always on by default; pass `text-fx="none"` to opt out. |
 
 All five are observed attributes; changing them at runtime through
 `setAttribute`/the JS property takes effect immediately.
+
+| Property / method / event | Notes |
+|---|---|
+| `.locked` (read-only) | `true` while a [game](#games) variant hasn't been beaten yet. Always `false` for visual variants. |
+| `.resetGame()` | Recreates the simulation, so a game starts over and is locked again. |
+| `game-clear` event | Fired once (bubbles, composed) when a game is beaten and the button unlocks. |
 
 ### `text-fx`
 
@@ -166,14 +224,14 @@ button's box rather than stay politely contained inside it.
 | `"skew"` | A large, fast `skew()` wobble (up to ~80°) built from layered sine waves at non-integer-ratio frequencies, riding along with a proportional offset so the label actually travels off-center — the ends visibly swing outside the button's own box at the extremes, not just shear in place inside it. |
 | `"explode"` | Splits the label into individual characters that burst outward (fast ease-out), hold scattered for a beat — flung well past the button's edges, tumbling and briefly scaled up — then snap back together (fast ease-in) and rest assembled before the next burst. Each character's direction, distance, rotation and peak scale are re-rolled every cycle, so the same word doesn't burst the same way twice in a row. The original text is fully hidden for as long as `text-fx="explode"` is set (see Accessibility below) — what's on screen is only ever the animated characters, never both at once. |
 | `"snake"` | Splits the label into characters that slither along a travelling sine wave. Each character samples the same curve at its own phase offset, so the crest moves along the word rather than every letter bobbing in unison, and each is rotated to the curve's local tangent — that tangent is what makes the row read as one body following a path instead of letters bouncing independently. A slower sweep carries the whole body left and right on top of that, so the snake travels well outside the button's own box on every side rather than wriggling on the spot in the middle of it. |
-| `"blackhole"` | Letters orbit, rotate and pulse continuously; clicking stretches them toward the center. |
+| `"blackhole"` | Letters orbit, rotate and pulse continuously. |
 | `"chrome"` | Metallic letters melt and stretch under moving highlights. |
 | `"plasma"` | Electric jitter and cyan-violet arcs outline each letter. |
-| `"stained-glass"` | Colored letters scatter, rotate, and reassemble on click. |
+| `"stained-glass"` | Colored letters shift hue and rock gently, like glass catching the light. |
 | `"aurora"` | Light trails rise from letters floating along a luminous curtain. |
 | `"ripple"` | Letters refract and leave watery double images. |
 | `"hologram"` | Translucent letter slices shift with cyan-magenta color separation. |
-| `"supernova"` | Letters pulse and rotate at 144 BPM, with an extra contraction and burst on click. |
+| `"supernova"` | Letters pulse and rotate at 144 BPM. |
 | `"zoom"` | A travelling magnification wave expands and rotates letters in sequence. |
 | `"ricochet"` | Letters bounce, squash at impact and rotate with offset rhythms. |
 | `"corridor"` | Letters move through perspective depth and turn like corridor panels. |
@@ -323,9 +381,8 @@ export default {
   focus, keyboard activation, and screen reader button semantics all work
   without any ARIA patching.
 - **`prefers-reduced-motion: reduce` disables the animation loop
-  entirely.** A single static frame is rendered and the simulation only
-  advances by exactly one step in response to a click — nothing animates
-  on its own. This also disables `text-fx` — the label freezes on a
+  entirely.** A single static frame is rendered and nothing animates on
+  its own. This also disables `text-fx` — the label freezes on a
   neutral, fully-readable pose rather than mid-rotation/skew/scatter (and
   `text-fx="spin"`'s default is exactly that: motion, so reduced-motion
   users always get a plain static label regardless of the default).
@@ -335,6 +392,10 @@ export default {
   are shown, so the button's accessible name is pinned explicitly via
   `aria-label` (taken from that same text) instead. Switching away from
   `"explode"` removes the override and restores the slot.
+- A locked [game](#games) hides its label, so the button's accessible name
+  is pinned to `"<label> (locked: clear the game to unlock)"` until it's
+  beaten. Under `prefers-reduced-motion: reduce` a game can't be played
+  (nothing animates), so game variants start unlocked instead.
 - Off-screen buttons (`IntersectionObserver`) and buttons in a hidden tab
   (`document.visibilitychange`) are excluded from the shared render loop
   entirely, not just throttled.
@@ -456,6 +517,7 @@ clamping. If it's correct natively, it's correct in wasm.
 
 ```
 Cargo.toml, src/            Rust: sims + software rasterizer (no Canvas2D)
+src/sims/games/             Rust: the game variants (flappy, runner, timing)
 src-ts/                     TypeScript: web component, scheduler, wasm glue
 scripts/inline-wasm.mjs     base64-inlines pkg/*.wasm into a TS constant
 examples/preview.rs         renders preview/*.gif from the native lib

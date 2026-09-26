@@ -35,8 +35,6 @@ pub struct Matrix {
     rows: usize,
     pixel: usize,
     clock: f32,
-    boost: f32,
-    hover: Option<usize>,
 }
 impl Matrix {
     pub fn new(w: usize, h: usize, rng: &mut Rng) -> Self {
@@ -45,8 +43,6 @@ impl Matrix {
             rows: 1,
             pixel: 1,
             clock: 0.0,
-            boost: 0.0,
-            hover: None,
         };
         sim.resize(w, h, rng);
         sim
@@ -68,27 +64,16 @@ impl Sim for Matrix {
                 }
             })
             .collect();
-        self.hover = None;
     }
-    fn step(&mut self, dt: f32, input: &Input, _: &mut Rng) {
+    fn step(&mut self, dt: f32, _: &Input, _: &mut Rng) {
         let dt = if dt.is_finite() {
             dt.clamp(0.0, 0.1)
         } else {
             0.0
         };
-        if input.clicks > 0 {
-            self.boost = 1.0;
-        }
-        self.boost = (self.boost - dt * 0.7).max(0.0);
         self.clock = (self.clock + dt).rem_euclid(1000.0);
-        self.hover = if input.hover && input.x.is_finite() && input.x >= 0.0 {
-            Some((input.x / (self.pixel * 9) as f32) as usize)
-        } else {
-            None
-        };
-        let speed = 1.0 + self.boost * 3.0 + if input.down { 1.5 } else { 0.0 };
         for col in &mut self.cols {
-            col.head = (col.head + dt * col.speed * speed).rem_euclid(self.rows as f32 + col.tail);
+            col.head = (col.head + dt * col.speed).rem_euclid(self.rows as f32 + col.tail);
         }
     }
     fn render(&mut self, frame: &mut Frame, _: &Theme) {
@@ -106,13 +91,12 @@ impl Sim for Matrix {
                     .wrapping_mul(2246822519);
                 let glyph = &GLYPHS[((hash ^ (hash >> 13)) as usize) % GLYPHS.len()];
                 let light = (1.0 - distance / col.tail).powf(1.5);
-                let focus = self.hover.map_or(false, |i| i.abs_diff(x) <= 1);
                 let color = if distance < 1.0 {
                     Rgb::new(185, 255, 215)
                 } else {
                     Rgb::new(
                         (light * 15.0) as u8,
-                        (30.0 + light * 190.0 + if focus { 35.0 } else { 0.0 }).min(255.0) as u8,
+                        (30.0 + light * 190.0).min(255.0) as u8,
                         (light * 65.0) as u8,
                     )
                 };
@@ -139,24 +123,14 @@ impl Sim for Matrix {
 mod tests {
     use super::*;
     #[test]
-    fn rain_moves_without_interaction_and_click_accelerates() {
+    fn rain_moves_on_its_own() {
         let mut a = Matrix::new(160, 48, &mut Rng::new(3));
-        let mut b = Matrix::new(160, 48, &mut Rng::new(3));
         a.cols[0].head = 0.0;
-        b.cols[0].head = 0.0;
         let mut frame = Frame::new(160, 48);
         a.render(&mut frame, &Theme::default());
         let before = frame.pixels.clone();
         a.step(0.05, &Input::default(), &mut Rng::new(1));
-        b.step(
-            0.05,
-            &Input {
-                clicks: 1,
-                ..Input::default()
-            },
-            &mut Rng::new(1),
-        );
-        assert!(b.cols[0].head > a.cols[0].head * 2.0);
+        assert!(a.cols[0].head > 0.0);
         a.render(&mut frame, &Theme::default());
         assert!(before != frame.pixels);
         assert!(frame

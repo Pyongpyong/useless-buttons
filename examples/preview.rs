@@ -42,6 +42,10 @@ fn main() {
         Variant::Ripple,
         Variant::Hologram,
         Variant::Supernova,
+        Variant::Flappy,
+        Variant::Runner,
+        Variant::Timing,
+        Variant::Crossy,
     ] {
         if std::env::args().nth(1).map_or(true, |name| name == variant.as_str()) {
             render_variant(variant, &out_dir);
@@ -68,34 +72,18 @@ fn render_variant(variant: Variant, out_dir: &Path) {
 
     let dt = 1.0 / FPS;
     let total_frames = (SECONDS * FPS) as usize;
-    let click_at = total_frames / 3;
 
     // Warm up off-screen (not written to the gif) so the first captured
     // frame isn't the initial blank/high-contrast-noise transient — e.g.
     // swarm's trail-fade hasn't converged yet, life's random reseed
     // hasn't settled into recognizable patterns yet.
-    let warmup_input = Input { x: W as f32 * 0.5, y: H as f32 * 0.5, hover: false, down: false, clicks: 0 };
+    let input = Input::default();
     for _ in 0..90 {
-        sim.step(dt, &warmup_input, &mut rng);
+        sim.step(dt, &input, &mut rng);
         sim.render(&mut frame, &theme);
     }
 
-    for i in 0..total_frames {
-        // Sweep the cursor across the button so hover-driven behavior
-        // (avoidance, fractal zoom-follow) actually shows up in the gif,
-        // and fire one click partway through for click-triggered effects
-        // (panic burst / sand pile / life reseed / fractal jump).
-        let t = i as f32 / total_frames as f32;
-        let x = W as f32 * (0.5 + 0.4 * (t * std::f32::consts::TAU).sin());
-        let y = H as f32 * (0.5 + 0.3 * (t * std::f32::consts::TAU * 1.3).cos());
-        let input = Input {
-            x,
-            y,
-            hover: true,
-            down: i % (FPS as usize) < (FPS as usize / 4),
-            clicks: if i == click_at { 1 } else { 0 },
-        };
-
+    for _ in 0..total_frames {
         sim.step(dt, &input, &mut rng);
         sim.render(&mut frame, &theme);
 

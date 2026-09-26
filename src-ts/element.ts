@@ -257,6 +257,14 @@ span[part="label"] {
   pointer-events: none;
   white-space: nowrap;
   transform-origin: 50% 50%;
+  transition: opacity 0.45s ease-out;
+}
+/* Game variants hide the label until the game is cleared; dropping the
+   class fades it in. */
+span[part="label"].locked {
+  visibility: hidden;
+  opacity: 0;
+  transition: none;
 }
 .label-fx {
   display: none;
@@ -355,22 +363,22 @@ export class UselessButtonElement extends HTMLElement {
   private isIntersecting = false;
   private readonly reducedMotionQuery: MediaQueryList;
 
-  private pointerHover = false;
-  private pointerDown = false;
-  private lastPointerX = 0;
-  private lastPointerY = 0;
 
   private fpsIntervalSeconds = 1 / 60;
   private tickAccumulator = 0;
 
   private textFxTime = 0;
-  private textFxClickAge = 2;
   private spinAngleDeg = 0;
   private spinCycleT = 0; // 0..1 progress within the current spin cycle
   private spinCycleIndex = 0;
   private spinCyclePeriodSec = (SPIN_CYCLE_MIN_SEC + SPIN_CYCLE_MAX_SEC) / 2;
   private spinCycleScaleAmp = (SPIN_SCALE_AMP_MIN + SPIN_SCALE_AMP_MAX) / 2;
   private fxChars: FxChar[] = [];
+
+  /** A game variant that hasn't been cleared yet: label hidden, clicks swallowed. */
+  private gameLocked = false;
+  /** Whether the press (pointer or key) that will produce the next click began while locked. */
+  private pressWhileLocked = false;
 
   constructor() {
     super();
@@ -402,13 +410,12 @@ export class UselessButtonElement extends HTMLElement {
       { threshold: 0 },
     );
 
-    this.buttonEl.addEventListener("pointerenter", this.onPointerEnter);
-    this.buttonEl.addEventListener("pointerleave", this.onPointerLeave);
-    this.buttonEl.addEventListener("pointermove", this.onPointerMove);
     this.buttonEl.addEventListener("pointerdown", this.onPointerDown);
-    this.buttonEl.addEventListener("pointerup", this.onPointerUp);
-    this.buttonEl.addEventListener("pointercancel", this.onPointerUp);
     this.buttonEl.addEventListener("click", this.onClick);
+    this.buttonEl.addEventListener("keydown", this.onKeyDown);
+    // Registered on the host itself, before any page code can add its
+    // own listeners, so it runs first — see `onHostClickCapture`.
+    this.addEventListener("click", this.onHostClickCapture, true);
     this.reducedMotionQuery.addEventListener("change", this.onReducedMotionChange);
   }
 
@@ -511,6 +518,21 @@ export class UselessButtonElement extends HTMLElement {
     this.setAttribute("text-fx", value);
   }
 
+  /**
+   * `true` while a game variant (`flappy`, `runner`, `timing`) is still
+   * waiting to be cleared. The label stays hidden and `click` events
+   * never reach the page until it flips to `false`, at which point a
+   * `game-clear` event is dispatched. Always `false` for visual variants.
+   */
+  get locked(): boolean {
+    return this.gameLocked;
+  }
+
+  /** Restart a game variant from scratch, locking it again. */
+  resetGame(): void {
+    this.recreateCore();
+  }
+
   // ---- internals ----
 
   private syncDisabled(): void {
@@ -535,6 +557,7 @@ export class UselessButtonElement extends HTMLElement {
     this.canvas.height = h;
     this.core = createUselessButton(this.variant, w, h, this.seed);
     this.fpsIntervalSeconds = this.computeFpsInterval();
+    this.lockIfGame();
     this.renderStaticFrame();
     this.syncScheduling();
   }
@@ -545,6 +568,7 @@ export class UselessButtonElement extends HTMLElement {
     this.core = createUselessButton(this.variant, this.devW, this.devH, this.seed);
     this.fpsIntervalSeconds = this.computeFpsInterval();
     this.tickAccumulator = 0;
+    this.lockIfGame();
     this.renderStaticFrame();
   }
 
@@ -606,7 +630,75 @@ export class UselessButtonElement extends HTMLElement {
       // transform happened to be active the instant reduced-motion
       // turned on.
       this.resetTextFx();
+      // A game can't be played without animation, so it simply unlocks.
+      if (this.gameLocked) this.setGameLocked(false);
     }
+  };
+
+  // ---- game variants ----
+
+  /**
+   * Fresh core: games start locked. Under reduced motion there's no
+   * animation loop to play them with, so they start unlocked instead.
+   */
+  private lockIfGame(): void {
+    this.setGameLocked(this.core !== null && this.core.is_game() && !this.prefersReducedMotion());
+  }
+
+  private setGameLocked(locked: boolean): void {
+    this.gameLocked = locked;
+    this.labelEl.classList.toggle("locked", locked);
+    this.syncAriaLabel();
+  }
+
+  private unlockClearedGame(): void {
+    this.setGameLocked(false);
+    // Reveal the label from a neutral pose rather than mid-animation.
+    this.resetTextFx();
+    this.dispatchEvent(new CustomEvent("game-clear", { bubbles: true, composed: true }));
+  }
+
+  /**
+   * Game input is taken on press (pointerdown / keydown) rather than on
+   * `click`, which only fires on release — too late for a flap or a
+   * jump to feel responsive. `left` marks a press on the left half of
+   * the button, which games that move both ways (`crossy`) read as
+   * "go left"; every other game treats both halves the same.
+   */
+  private sendGameInput(left = false): void {
+    if (!this.core || this.disabled) return;
+    if (left) this.core.click_left();
+    else this.core.click();
+  }
+
+  /**
+   * Swallows clicks while a game is locked — and also the click that
+   * ends the very press which cleared it, since that press began before
+   * the game was won. A capture listener on the host runs ahead of every
+   * non-capture listener (and `onclick`) the page puts on this element,
+   * and ahead of the inner button's own handlers, whether the click came
+   * from the inner button or from a programmatic `host.click()`.
+   */
+  private onHostClickCapture = (ev: MouseEvent): void => {
+    const swallow = this.gameLocked || this.pressWhileLocked;
+    this.pressWhileLocked = false;
+    if (!swallow) return;
+    ev.stopImmediatePropagation();
+    ev.preventDefault();
+  };
+
+  private onKeyDown = (ev: KeyboardEvent): void => {
+    // Arrow keys are the keyboard's two halves of the button. They never
+    // activate a <button>, so there's no click to swallow afterwards.
+    if (ev.key === "ArrowLeft" || ev.key === "ArrowRight") {
+      if (!this.gameLocked) return;
+      ev.preventDefault();
+      if (!ev.repeat) this.sendGameInput(ev.key === "ArrowLeft");
+      return;
+    }
+    if (ev.key !== "Enter" && ev.key !== " ") return;
+    this.pressWhileLocked = this.gameLocked;
+    if (this.gameLocked && !ev.repeat) this.sendGameInput();
   };
 
   private applyTheme(): void {
@@ -642,15 +734,16 @@ export class UselessButtonElement extends HTMLElement {
     const usedDt = this.tickAccumulator;
     this.tickAccumulator = 0;
     this.applyTheme();
-    this.core.pointer(this.lastPointerX, this.lastPointerY, this.pointerHover, this.pointerDown);
     this.core.tick(usedDt);
     this.paint();
+    if (this.gameLocked && this.core.cleared()) this.unlockClearedGame();
   }
 
   // ---- label text effects ----
 
   private onSlotChange = (): void => {
     if (PER_CHAR_FX.has(this.textFx)) this.rebuildFxChars();
+    this.syncAriaLabel();
   };
 
   /**
@@ -677,17 +770,29 @@ export class UselessButtonElement extends HTMLElement {
     if (PER_CHAR_FX.has(mode)) {
       this.slotEl.style.visibility = "hidden";
       this.rebuildFxChars();
-      // The real text is now hidden and the animated character layer
-      // is `aria-hidden` (it's a visual-only stand-in, not a second
-      // copy of the text) — on their own, neither contributes to the
-      // button's accessible name. Pin it explicitly so the button
-      // still has one.
-      const text = this.textContent ?? "";
-      if (text.trim()) this.buttonEl.setAttribute("aria-label", text);
     } else {
       this.slotEl.style.visibility = "";
       this.labelFxEl.textContent = "";
       this.fxChars = [];
+    }
+    this.syncAriaLabel();
+  }
+
+  /**
+   * Hidden text doesn't contribute to the button's accessible name. In a
+   * per-character mode the real text is hidden and the animated layer is
+   * `aria-hidden` (a visual-only stand-in, not a second copy), and a
+   * locked game hides the whole label — so in both cases the name is
+   * pinned explicitly.
+   */
+  private syncAriaLabel(): void {
+    const text = this.textContent ?? "";
+    if (this.gameLocked) {
+      const name = text.trim() ? `${text.trim()} (locked: clear the game to unlock)` : "Locked: clear the game to unlock";
+      this.buttonEl.setAttribute("aria-label", name);
+    } else if (PER_CHAR_FX.has(this.textFx) && text.trim()) {
+      this.buttonEl.setAttribute("aria-label", text);
+    } else {
       this.buttonEl.removeAttribute("aria-label");
     }
   }
@@ -711,7 +816,6 @@ export class UselessButtonElement extends HTMLElement {
   /** Clears any active label transform/phase state back to neutral. Does not remove the explode `<span>`s — just re-centers them. */
   private resetTextFx(): void {
     this.textFxTime = 0;
-    this.textFxClickAge = 2;
     this.spinAngleDeg = 0;
     this.spinCycleT = 0;
     this.spinCycleIndex = 0;
@@ -731,11 +835,10 @@ export class UselessButtonElement extends HTMLElement {
     const mode = this.textFx;
     if (mode === "none") return;
     this.textFxTime += dt;
-    this.textFxClickAge = Math.min(2, this.textFxClickAge + dt);
     if ((SPECTACLE_TEXT_MODES as readonly string[]).includes(mode)) {
       for (const ch of this.fxChars) {
         paintSpectacleChar(mode as SpectacleTextMode, ch.el, ch.index,
-          this.fxChars.length, this.textFxTime, this.textFxClickAge);
+          this.fxChars.length, this.textFxTime);
       }
       return;
     }
@@ -902,40 +1005,17 @@ export class UselessButtonElement extends HTMLElement {
     }
   }
 
-  private updatePointerFromEvent(ev: PointerEvent): void {
-    const rect = this.canvas.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
-    this.lastPointerX = (ev.clientX - rect.left) * dpr;
-    this.lastPointerY = (ev.clientY - rect.top) * dpr;
-  }
-
-  private onPointerEnter = (ev: PointerEvent): void => {
-    this.pointerHover = true;
-    this.updatePointerFromEvent(ev);
-  };
-
-  private onPointerMove = (ev: PointerEvent): void => {
-    this.updatePointerFromEvent(ev);
-  };
-
-  private onPointerLeave = (): void => {
-    this.pointerHover = false;
-    this.pointerDown = false;
-  };
-
   private onPointerDown = (ev: PointerEvent): void => {
-    this.pointerDown = true;
-    this.updatePointerFromEvent(ev);
+    this.pressWhileLocked = this.gameLocked;
+    if (!this.gameLocked || ev.button !== 0) return;
+    const rect = this.buttonEl.getBoundingClientRect();
+    this.sendGameInput(ev.clientX < rect.left + rect.width / 2);
   };
 
-  private onPointerUp = (): void => {
-    this.pointerDown = false;
-  };
-
+  /** Visual variants don't react to clicks; a cleared game celebrates. */
   private onClick = (): void => {
-    if (!this.core) return;
+    if (!this.core || !this.core.is_game()) return;
     this.core.click();
-    this.textFxClickAge = 0;
     if (this.prefersReducedMotion()) {
       // No rAF loop is running in reduced-motion mode: advance exactly
       // one step so a click still visibly does something.

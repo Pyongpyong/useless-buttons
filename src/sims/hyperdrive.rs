@@ -64,7 +64,6 @@ const STREAK_FRAMES_LIGHT: f32 = 7.0;
 /// canvas end to end.
 const STREAK_MAX_DIAGONALS: f32 = 3.0;
 
-/// Hovering spools the drive up early; clicking punches it immediately.
 const MAX_DT: f32 = 1.0 / 20.0;
 
 #[derive(Clone, Copy)]
@@ -198,18 +197,10 @@ impl Sim for Hyperdrive {
         }
     }
 
-    fn step(&mut self, dt: f32, input: &Input, rng: &mut Rng) {
+    fn step(&mut self, dt: f32, _: &Input, rng: &mut Rng) {
         let dt = if dt.is_finite() { dt.clamp(0.0, MAX_DT) } else { 0.0 };
         if dt <= 0.0 || self.stars.is_empty() {
             return;
-        }
-
-        // Clicking punches the drive straight to the jump; hovering skips
-        // the idle stretch so it spools up without waiting.
-        if input.clicks > 0 {
-            self.cycle_t = IDLE_SEC + SPOOL_SEC;
-        } else if input.hover && self.cycle_t < IDLE_SEC {
-            self.cycle_t = IDLE_SEC;
         }
 
         let before = self.cycle_t;
@@ -403,17 +394,6 @@ mod tests {
             }
         }
         assert!(seen_idle && seen_light, "cycle never covered both ends (idle={seen_idle}, light={seen_light})");
-    }
-
-    #[test]
-    fn a_click_punches_straight_to_the_jump() {
-        let mut rng = Rng::new(5);
-        let mut sim = make(320, 96, 5);
-        let idle = drive_speed(sim.cycle_position());
-        let input = Input { x: 0.0, y: 0.0, hover: false, down: false, clicks: 1 };
-        sim.step(1.0 / 60.0, &input, &mut rng);
-        let after = drive_speed(sim.cycle_position());
-        assert!(after > idle * 10.0, "click didn't engage the drive: {idle} -> {after}");
     }
 
     #[test]

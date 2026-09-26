@@ -32,12 +32,6 @@ const SPEED_MAX: f32 = 26.0;
 /// the diagram's edges.
 const EDGE_PX: f32 = 1.6;
 
-/// While hovering, the cursor joins in as one more site, so the diagram
-/// opens a cell that follows the pointer around. It gets a fixed, hot
-/// color so it stands out from the drifting ones.
-const CURSOR_HUE: f32 = 6.0;
-const CURSOR_SAT: f32 = 0.85;
-const CURSOR_VAL: f32 = 1.0;
 const MAX_DT: f32 = 1.0 / 20.0;
 
 #[derive(Clone, Copy)]
@@ -55,10 +49,6 @@ pub struct Voronoi {
     w: f32,
     h: f32,
     sites: Vec<Site>,
-    /// Where the pointer was at the last `step`, if it was over the
-    /// button. `render` has no access to `Input`, so hover state has to
-    /// be carried across from the step that observed it.
-    cursor: Option<(f32, f32)>,
 }
 
 fn target_count(w: usize, h: usize) -> usize {
@@ -68,7 +58,7 @@ fn target_count(w: usize, h: usize) -> usize {
 impl Voronoi {
     pub fn new(w: usize, h: usize, rng: &mut Rng) -> Self {
         let mut v =
-            Voronoi { w: w.max(1) as f32, h: h.max(1) as f32, sites: Vec::new(), cursor: None };
+            Voronoi { w: w.max(1) as f32, h: h.max(1) as f32, sites: Vec::new() };
         v.populate(rng);
         v
     }
@@ -92,14 +82,6 @@ impl Voronoi {
                 sat: rng.range_f32(0.45, 0.9),
                 val: rng.range_f32(0.55, 0.95),
             });
-        }
-    }
-
-    fn recolor(&mut self, rng: &mut Rng) {
-        for s in &mut self.sites {
-            s.hue = rng.range_f32(0.0, 360.0);
-            s.sat = rng.range_f32(0.45, 0.9);
-            s.val = rng.range_f32(0.55, 0.95);
         }
     }
 
@@ -133,20 +115,10 @@ impl Sim for Voronoi {
         }
     }
 
-    fn step(&mut self, dt: f32, input: &Input, rng: &mut Rng) {
-        self.cursor = if input.hover && input.x.is_finite() && input.y.is_finite() {
-            Some((input.x, input.y))
-        } else {
-            None
-        };
-
+    fn step(&mut self, dt: f32, _: &Input, _: &mut Rng) {
         let dt = if dt.is_finite() { dt.clamp(0.0, MAX_DT) } else { 0.0 };
         if dt <= 0.0 || self.sites.is_empty() || self.w <= 0.0 || self.h <= 0.0 {
             return;
-        }
-
-        if input.clicks > 0 {
-            self.recolor(rng);
         }
 
         let (w, h) = (self.w, self.h);
@@ -205,29 +177,8 @@ impl Sim for Voronoi {
                     }
                 }
 
-                // The pointer competes as one more site while it's over
-                // the button, carving its own cell out of whatever it's
-                // standing on.
-                let mut cursor_owns = false;
-                if let Some((cx, cy)) = self.cursor {
-                    let dx = px - cx;
-                    let dy = py - cy;
-                    let d2 = dx * dx + dy * dy;
-                    if d2 < best {
-                        second = best;
-                        best = d2;
-                        cursor_owns = true;
-                    } else if d2 < second {
-                        second = d2;
-                    }
-                }
-
-                let mut color = if cursor_owns {
-                    Rgb::from_hsv(CURSOR_HUE, CURSOR_SAT, CURSOR_VAL)
-                } else {
-                    let site = self.sites[best_i];
-                    Rgb::from_hsv(site.hue, site.sat, site.val)
-                };
+                let site = self.sites[best_i];
+                let mut color = Rgb::from_hsv(site.hue, site.sat, site.val);
 
                 // Equidistant from two sites => on the border between
                 // their cells. Comparing the actual distances (not the
@@ -297,18 +248,6 @@ mod tests {
             assert!((0.0..=320.0).contains(&x), "x={x} escaped");
             assert!((0.0..=96.0).contains(&y), "y={y} escaped");
         }
-    }
-
-    #[test]
-    fn click_rerolls_the_palette() {
-        let mut rng = Rng::new(3);
-        let mut sim = make(320, 96, 3);
-        let before = sim.hues();
-        let input = Input { x: 0.0, y: 0.0, hover: false, down: false, clicks: 1 };
-        sim.step(1.0 / 60.0, &input, &mut rng);
-        let after = sim.hues();
-        let changed = before.iter().zip(after.iter()).filter(|(a, b)| (*a - *b).abs() > 1e-6).count();
-        assert!(changed > 0, "click left every cell the same color");
     }
 
     #[test]

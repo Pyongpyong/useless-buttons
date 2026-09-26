@@ -1,4 +1,4 @@
-//! Eight bounded software effects. Shared input/lifecycle handling, distinct
+//! Eight bounded software effects. Shared lifecycle handling, distinct
 //! geometry and shading for each material. No textures or external assets.
 use super::{Input, Sim};
 use crate::paint::{Frame, Rgb, Theme};
@@ -21,7 +21,6 @@ pub enum Effect {
 struct Shard {
     vertices: [usize; 3],
     hue: f32,
-    spin: f32,
 }
 
 pub struct Spectacle {
@@ -30,10 +29,6 @@ pub struct Spectacle {
     h: f32,
     time: f32,
     phase: f32,
-    event: f32,
-    pointer: (f32, f32),
-    impact: (f32, f32),
-    energy: f32,
     shards: Vec<Shard>,
     glass_vertices: Vec<(f32, f32)>,
 }
@@ -82,7 +77,6 @@ impl Spectacle {
                         shards.push(Shard {
                             vertices,
                             hue: rng.range_f32(0.0, 360.0),
-                            spin: rng.range_f32(-2.0, 2.0),
                         });
                     }
                 }
@@ -94,10 +88,6 @@ impl Spectacle {
             h: h.max(1) as f32,
             time: 0.0,
             phase: rng.range_f32(0.0, TAU),
-            event: 2.0,
-            pointer: (0.5, 0.5),
-            impact: (0.5, 0.5),
-            energy: 0.0,
             shards,
             glass_vertices,
         }
@@ -145,25 +135,21 @@ impl Spectacle {
         let y = v + 0.5;
         let r = (u * u + v * v).sqrt();
         let a = v.atan2(u);
-        let burst = (1.0 - self.event / 2.0).max(0.0);
-        let px = (screen_x - self.pointer.0) * self.w / self.h;
-        let py = screen_y - self.pointer.1;
+        // Distance from the center of the button itself, unaffected by
+        // the camera's zoom and roll.
+        let px = (screen_x - 0.5) * self.w / self.h;
+        let py = screen_y - 0.5;
         let pr = (px * px + py * py).sqrt();
         match self.effect {
             Effect::Blackhole => {
-                let collapse = if self.event < 2.0 {
-                    1.0 - 0.8 * (PI * self.event / 2.0).sin()
-                } else {
-                    1.0
-                };
-                let hole = 0.16 * collapse;
+                let hole = 0.16;
                 let warp = (r - hole).abs();
                 let lens = glow(warp, 0.008) * 1.8;
                 let tilt = v + u * 0.14;
                 let disk_r = (u * u + tilt * tilt * 24.0).sqrt();
-                let band = glow(disk_r - 0.36 * collapse, 0.075);
+                let band = glow(disk_r - 0.36, 0.075);
                 let streak = 0.5 + 0.5 * (disk_r * 160.0 - a * 9.0 - t * 4.0).sin();
-                let disk = band * (0.4 + streak * 0.6) * (1.0 + self.energy * 0.5);
+                let disk = band * (0.4 + streak * 0.6);
                 // Lensed upper image of the far side of the accretion disk.
                 let arc = glow(r - hole * 1.3, 0.016) * if v < 0.0 { 0.8 } else { 0.15 };
                 if r < hole {
@@ -177,9 +163,8 @@ impl Spectacle {
             }
             Effect::Chrome => {
                 let wave = (u * 5.0 + t).sin() + (v * 11.0 - t * 1.3).cos();
-                let dent = (pr * 25.0 - self.event * 12.0).cos() * burst * (-pr * 3.0).exp();
-                let nx = (u * 6.0 + wave + dent + self.pointer.0 * 2.0).sin();
-                let ny = (v * 8.0 + wave * 0.7 - t * 0.8 + dent).cos();
+                let nx = (u * 6.0 + wave + 1.0).sin();
+                let ny = (v * 8.0 + wave * 0.7 - t * 0.8).cos();
                 let reflection = (nx * 1.7 + ny * 1.2).sin();
                 let metal = 28.0 + (reflection * 0.5 + 0.5).powf(3.0) * 190.0;
                 let strip = glow(reflection - 0.35, 0.045) * 140.0;
@@ -193,17 +178,17 @@ impl Spectacle {
             }
             Effect::Plasma => {
                 let mut bolt = 0.0;
-                // Filaments bridge the two edges and converge on the pointer.
+                // Filaments bridge the two edges and converge on the center.
                 for k in 0..6 {
                     let k = k as f32;
                     let envelope = (PI * x).sin();
-                    let target = self.pointer.1 + (k - 2.5) * 0.10 * (1.0 - envelope);
+                    let target = 0.5 + (k - 2.5) * 0.10 * (1.0 - envelope);
                     let noise = (x * 49.0 + t * 9.0 + k * 2.0).sin() * 0.025
                         + (x * 117.0 - t * 13.0 + k).sin() * 0.012;
                     let path = target + noise + (x * 13.0 + k + t * 2.0).sin() * 0.12 * envelope;
-                    bolt += glow(y - path, 0.004 + burst * 0.005);
+                    bolt += glow(y - path, 0.004);
                 }
-                let core = glow(pr, 0.035) * (0.4 + self.energy + burst);
+                let core = glow(pr, 0.035) * 0.4;
                 rgb(
                     8.0 + bolt * 150.0 + core * 150.0,
                     3.0 + bolt * 100.0 + core * 220.0,
@@ -217,7 +202,7 @@ impl Spectacle {
                     let k = k as f32;
                     let fold = (x * 9.0 + t * 0.4 + k).sin() * 0.10
                         + (x * 19.0 - t * 0.3 + k * 1.7).sin() * 0.035;
-                    let curtain = 0.32 + k * 0.09 + fold + (self.pointer.1 - 0.5) * 0.2;
+                    let curtain = 0.32 + k * 0.09 + fold;
                     let d = y - curtain;
                     let beam = (0.6 + 0.4 * (x * 150.0 + (x * 23.0 + t).sin() * 8.0).sin())
                         * if d < 0.0 {
@@ -228,35 +213,29 @@ impl Spectacle {
                     green += beam * (1.0 - k * 0.16);
                     violet += beam * k * 0.25;
                 }
-                let storm = glow(r - self.event * 0.9, 0.025) * burst;
                 rgb(
-                    3.0 + violet * 100.0 + storm * 80.0,
-                    8.0 + green * 100.0 + storm * 180.0,
-                    22.0 + green * 65.0 + violet * 130.0 + storm * 180.0,
+                    3.0 + violet * 100.0,
+                    8.0 + green * 100.0,
+                    22.0 + green * 65.0 + violet * 130.0,
                 )
             }
             Effect::Ripple => {
-                let ix = (screen_x - self.impact.0) * self.w / self.h;
-                let iy = screen_y - self.impact.1;
-                let ir = (ix * ix + iy * iy).sqrt();
                 let wave =
                     (r * 28.0 - t * 3.0).sin() * 0.035 + (u * 9.0 + v * 13.0 + t).sin() * 0.025;
-                let shock = (ir * 48.0 - self.event * 16.0).sin() * burst * (-ir * 1.5).exp();
-                let nx = (u * 13.0 + wave * 25.0 + shock * 2.0).sin();
-                let ny = (v * 18.0 - t + wave * 30.0 + shock).cos();
+                let nx = (u * 13.0 + wave * 25.0).sin();
+                let ny = (v * 18.0 - t + wave * 30.0).cos();
                 let caustic = glow(nx + ny, 0.065);
-                let crest = glow(ir - self.event * 0.65, 0.018) * burst;
                 rgb(
-                    2.0 + caustic * 95.0 + crest * 170.0,
-                    15.0 + caustic * 190.0 + crest * 180.0,
-                    27.0 + caustic * 220.0 + crest * 210.0,
+                    2.0 + caustic * 95.0,
+                    15.0 + caustic * 190.0,
+                    27.0 + caustic * 220.0,
                 )
             }
             Effect::Hologram => {
                 let rot = t * 0.35;
                 let qx = u * rot.cos() - v * rot.sin();
                 let qy = u * rot.sin() + v * rot.cos();
-                let size = 0.23 + burst * 0.18;
+                let size = 0.23;
                 let mut wire = 0.0;
                 for k in 0..5 {
                     let offset = k as f32 * 0.025;
@@ -268,18 +247,13 @@ impl Spectacle {
                     + glow((y * 10.0).fract().min(1.0 - (y * 10.0).fract()), 0.025);
                 let stripe = 0.65 + 0.35 * (y * self.h * PI).cos().abs();
                 rgb(
-                    2.0 + wire * 50.0 + burst * scan * 120.0,
+                    2.0 + wire * 50.0,
                     (12.0 + wire * 200.0 + grid * 30.0 + scan * 65.0) * stripe,
                     (20.0 + wire * 240.0 + grid * 40.0 + scan * 95.0) * stripe,
                 )
             }
             Effect::Supernova => {
-                let radius = if self.event < 0.3 {
-                    0.20 * (1.0 - self.event * 2.3)
-                } else {
-                    0.20
-                };
-                let eruption = if self.event >= 0.3 { burst } else { 0.0 };
+                let radius = 0.20;
                 let edge =
                     radius + (a * 9.0 + t * 3.0).sin() * 0.018 + (a * 17.0 - t * 4.0).sin() * 0.008;
                 let corona = glow(r - edge, 0.035) * 1.1;
@@ -288,14 +262,11 @@ impl Spectacle {
                 } else {
                     0.0
                 };
-                let shock = glow(r - (self.event - 0.3).max(0.0) * 1.6, 0.035) * eruption;
-                let ray = ((a * 23.0 + t * 0.4).sin().abs()).powf(14.0)
-                    * glow(r - 0.3, 0.2)
-                    * (0.25 + eruption);
+                let ray = ((a * 23.0 + t * 0.4).sin().abs()).powf(14.0) * glow(r - 0.3, 0.2) * 0.25;
                 rgb(
-                    8.0 + surface * 230.0 + corona * 255.0 + shock * 220.0 + ray * 160.0,
-                    3.0 + surface * 160.0 + corona * 100.0 + shock * 150.0 + ray * 65.0,
-                    12.0 + surface * 65.0 + corona * 28.0 + shock * 240.0 + ray * 70.0,
+                    8.0 + surface * 230.0 + corona * 255.0 + ray * 160.0,
+                    3.0 + surface * 160.0 + corona * 100.0 + ray * 65.0,
+                    12.0 + surface * 65.0 + corona * 28.0 + ray * 70.0,
                 )
             }
             Effect::Glass => unreachable!("glass uses triangle rasterization"),
@@ -328,31 +299,9 @@ impl Spectacle {
 
     fn render_glass(&self, frame: &mut Frame) {
         frame.fill(Rgb::new(5, 5, 18));
-        let scatter = if self.event < 2.0 {
-            (PI * self.event / 2.0).sin().powf(0.7)
-        } else {
-            0.0
-        };
         let mesh = self.glass_mesh();
         for shard in &self.shards {
-            let vertices = shard.vertices.map(|i| mesh[i]);
-            let center = (
-                (vertices[0].0 + vertices[1].0 + vertices[2].0) / 3.0,
-                (vertices[0].1 + vertices[1].1 + vertices[2].1) / 3.0,
-            );
-            let angle = scatter * shard.spin;
-            let points = vertices.map(|(x, y)| {
-                let dx = (x - center.0) * frame.w as f32;
-                let dy = (y - center.1) * frame.h as f32;
-                (
-                    (center.0 + (center.0 - self.impact.0) * scatter) * frame.w as f32
-                        + dx * angle.cos()
-                        - dy * angle.sin(),
-                    (center.1 + (center.1 - self.impact.1) * scatter) * frame.h as f32
-                        + dx * angle.sin()
-                        + dy * angle.cos(),
-                )
-            });
+            let points = shard.vertices.map(|i| (mesh[i].0 * frame.w as f32, mesh[i].1 * frame.h as f32));
             let min_x = points
                 .iter()
                 .map(|p| p.0)
@@ -420,30 +369,13 @@ impl Sim for Spectacle {
         self.w = w.max(1) as f32;
         self.h = h.max(1) as f32;
     }
-    fn step(&mut self, dt: f32, input: &Input, _: &mut Rng) {
+    fn step(&mut self, dt: f32, _: &Input, _: &mut Rng) {
         let dt = if dt.is_finite() {
             dt.clamp(0.0, 0.1)
         } else {
             0.0
         };
-        self.time = (self.time + dt * (1.0 + self.energy)).rem_euclid(600.0 * TAU);
-        self.event = (self.event + dt).min(2.0);
-        let target = if input.hover && input.x.is_finite() && input.y.is_finite() {
-            (
-                (input.x / self.w).clamp(0.0, 1.0),
-                (input.y / self.h).clamp(0.0, 1.0),
-            )
-        } else {
-            (0.5, 0.5)
-        };
-        let follow = 1.0 - (-dt * 8.0).exp();
-        self.pointer.0 += (target.0 - self.pointer.0) * follow;
-        self.pointer.1 += (target.1 - self.pointer.1) * follow;
-        self.energy += ((if input.down { 1.0 } else { 0.0 }) - self.energy) * follow;
-        if input.clicks > 0 {
-            self.event = 0.0;
-            self.impact = target;
-        }
+        self.time = (self.time + dt).rem_euclid(600.0 * TAU);
     }
     fn render(&mut self, frame: &mut Frame, _: &Theme) {
         if self.effect == Effect::Glass {
@@ -549,7 +481,7 @@ mod tests {
     }
 
     #[test]
-    fn every_effect_animates_and_responds_to_clicks() {
+    fn every_effect_animates_at_rest() {
         for effect in EFFECTS {
             let mut rng = Rng::new(42);
             let mut sim = Spectacle::new(effect, 161, 49, &mut rng);
@@ -561,50 +493,17 @@ mod tests {
             }
             sim.render(&mut frame, &Theme::default());
             assert!(initial != frame.pixels, "{effect:?} must animate at rest");
-            let mut control = Spectacle::new(effect, 161, 49, &mut Rng::new(42));
-            for _ in 0..10 {
-                control.step(0.05, &Input::default(), &mut rng);
-            }
-            sim.step(
-                0.0,
-                &Input {
-                    clicks: 1,
-                    ..Input::default()
-                },
-                &mut rng,
-            );
-            for _ in 0..12 {
-                sim.step(0.05, &Input::default(), &mut rng);
-                control.step(0.05, &Input::default(), &mut rng);
-            }
-            sim.render(&mut frame, &Theme::default());
-            let mut other = Frame::new(161, 49);
-            control.render(&mut other, &Theme::default());
-            assert!(
-                frame.pixels != other.pixels,
-                "{effect:?} click must affect rendering"
-            );
         }
     }
     #[test]
-    fn invalid_inputs_resize_and_long_running_state_stay_safe() {
+    fn invalid_dt_resize_and_long_running_state_stay_safe() {
         for effect in EFFECTS {
             let mut rng = Rng::new(1);
             let mut sim = Spectacle::new(effect, 0, 0, &mut rng);
             for (w, h) in [(0, 0), (1, 7), (7, 1), (65, 33)] {
                 sim.resize(w, h, &mut rng);
                 for dt in [f32::NAN, f32::INFINITY, -1.0, 10000.0] {
-                    sim.step(
-                        dt,
-                        &Input {
-                            hover: true,
-                            x: f32::NAN,
-                            y: f32::INFINITY,
-                            clicks: 1,
-                            down: true,
-                        },
-                        &mut rng,
-                    );
+                    sim.step(dt, &Input::default(), &mut rng);
                 }
                 let mut frame = Frame::new(w, h);
                 sim.render(&mut frame, &Theme::default());
@@ -614,7 +513,6 @@ mod tests {
                 sim.step(0.1, &Input::default(), &mut rng);
             }
             assert!(sim.time.is_finite() && sim.time < 600.0 * TAU);
-            assert_eq!(sim.event, 2.0);
             assert!(sim.shards.len() <= 48);
         }
     }
