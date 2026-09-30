@@ -154,7 +154,7 @@ mod tests {
 
     #[test]
     fn constructs_and_ticks_for_every_variant() {
-        for name in ["swarm", "sand", "life", "fractal", "bounce", "dungeon", "starry", "voronoi", "hyperdrive", "tunnel", "matrix", "blackhole", "chrome", "plasma", "stained-glass", "aurora", "ripple", "hologram", "supernova", "flappy", "runner", "timing", "crossy", "django", "balloon", "memory", "dodge", "breakout", "invaders", "pong", "mole", "stack", "heli", "numbers", "rhythm", "survivor", "frog", "crawler", "shooter"] {
+        for name in ["swarm", "sand", "life", "fractal", "bounce", "dungeon", "starry", "voronoi", "hyperdrive", "tunnel", "matrix", "blackhole", "chrome", "plasma", "stained-glass", "aurora", "ripple", "hologram", "supernova", "fire", "rain", "fireworks", "snow", "lava", "reaction", "spirograph", "kaleidoscope", "pendulum", "lissajous", "synthwave", "crt", "pipes", "radar", "metaball", "constellation", "ascii", "flappy", "runner", "timing", "crossy", "django", "balloon", "memory", "dodge", "breakout", "invaders", "pong", "mole", "stack", "heli", "numbers", "rhythm", "survivor", "frog", "crawler", "shooter"] {
             let mut ub = UselessButton::new(name, 320, 96, 1);
             assert_eq!(ub.variant(), name);
             for _ in 0..10 {

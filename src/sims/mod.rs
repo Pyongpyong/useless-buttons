@@ -13,6 +13,23 @@ pub mod swarm;
 pub mod tunnel;
 pub mod spectacle;
 pub mod voronoi;
+pub mod fire;
+pub mod fireworks;
+pub mod lava;
+pub mod rain;
+pub mod snow;
+pub mod kaleidoscope;
+pub mod lissajous;
+pub mod pendulum;
+pub mod reaction;
+pub mod spirograph;
+pub mod crt;
+pub mod metaball;
+pub mod pipes;
+pub mod radar;
+pub mod synthwave;
+pub mod ascii;
+pub mod constellation;
 
 use crate::paint::{Frame, Theme};
 use crate::rng::Rng;
@@ -135,6 +152,23 @@ pub enum Variant {
     Ripple,
     Hologram,
     Supernova,
+    Fire,
+    Rain,
+    Fireworks,
+    Snow,
+    Lava,
+    Reaction,
+    Spirograph,
+    Kaleidoscope,
+    Pendulum,
+    Lissajous,
+    Synthwave,
+    Crt,
+    Pipes,
+    Radar,
+    Metaball,
+    Constellation,
+    Ascii,
     Flappy,
     Runner,
     Timing,
@@ -182,6 +216,23 @@ impl Variant {
             "ripple" => Variant::Ripple,
             "hologram" => Variant::Hologram,
             "supernova" => Variant::Supernova,
+            "fire" | "flames" => Variant::Fire,
+            "rain" | "rainy-window" => Variant::Rain,
+            "fireworks" => Variant::Fireworks,
+            "snow" | "snowfall" => Variant::Snow,
+            "lava" | "lava-lamp" => Variant::Lava,
+            "reaction" | "reaction-diffusion" | "turing" => Variant::Reaction,
+            "spirograph" | "spiro" => Variant::Spirograph,
+            "kaleidoscope" => Variant::Kaleidoscope,
+            "pendulum" | "double-pendulum" | "chaos" => Variant::Pendulum,
+            "lissajous" | "oscilloscope" | "scope" => Variant::Lissajous,
+            "synthwave" | "retrowave" | "outrun" => Variant::Synthwave,
+            "crt" | "tv" | "no-signal" => Variant::Crt,
+            "pipes" | "3d-pipes" => Variant::Pipes,
+            "radar" => Variant::Radar,
+            "metaball" | "metaballs" | "blobs" => Variant::Metaball,
+            "constellation" | "network" | "plexus" => Variant::Constellation,
+            "ascii" | "ascii-art" | "donut" => Variant::Ascii,
             "flappy" | "flappy-bird" | "bird" => Variant::Flappy,
             "runner" | "jump" | "platformer" | "wonderboy" | "wonder-boy" => Variant::Runner,
             "timing" | "timing-ring" => Variant::Timing,
@@ -228,6 +279,23 @@ impl Variant {
             Variant::Ripple => "ripple",
             Variant::Hologram => "hologram",
             Variant::Supernova => "supernova",
+            Variant::Fire => "fire",
+            Variant::Rain => "rain",
+            Variant::Fireworks => "fireworks",
+            Variant::Snow => "snow",
+            Variant::Lava => "lava",
+            Variant::Reaction => "reaction",
+            Variant::Spirograph => "spirograph",
+            Variant::Kaleidoscope => "kaleidoscope",
+            Variant::Pendulum => "pendulum",
+            Variant::Lissajous => "lissajous",
+            Variant::Synthwave => "synthwave",
+            Variant::Crt => "crt",
+            Variant::Pipes => "pipes",
+            Variant::Radar => "radar",
+            Variant::Metaball => "metaball",
+            Variant::Constellation => "constellation",
+            Variant::Ascii => "ascii",
             Variant::Flappy => "flappy",
             Variant::Runner => "runner",
             Variant::Timing => "timing",
@@ -301,6 +369,23 @@ impl Variant {
             Variant::Ripple => Box::new(spectacle::Spectacle::new(spectacle::Effect::Ripple, w, h, rng)),
             Variant::Hologram => Box::new(spectacle::Spectacle::new(spectacle::Effect::Hologram, w, h, rng)),
             Variant::Supernova => Box::new(spectacle::Spectacle::new(spectacle::Effect::Supernova, w, h, rng)),
+            Variant::Fire => Box::new(fire::Fire::new(w, h, rng)),
+            Variant::Rain => Box::new(rain::Rain::new(w, h, rng)),
+            Variant::Fireworks => Box::new(fireworks::Fireworks::new(w, h, rng)),
+            Variant::Snow => Box::new(snow::Snow::new(w, h, rng)),
+            Variant::Lava => Box::new(lava::Lava::new(w, h, rng)),
+            Variant::Reaction => Box::new(reaction::Reaction::new(w, h, rng)),
+            Variant::Spirograph => Box::new(spirograph::Spirograph::new(w, h, rng)),
+            Variant::Kaleidoscope => Box::new(kaleidoscope::Kaleidoscope::new(w, h, rng)),
+            Variant::Pendulum => Box::new(pendulum::Pendulum::new(w, h, rng)),
+            Variant::Lissajous => Box::new(lissajous::Lissajous::new(w, h, rng)),
+            Variant::Synthwave => Box::new(synthwave::Synthwave::new(w, h, rng)),
+            Variant::Crt => Box::new(crt::Crt::new(w, h, rng)),
+            Variant::Pipes => Box::new(pipes::Pipes::new(w, h, rng)),
+            Variant::Radar => Box::new(radar::Radar::new(w, h, rng)),
+            Variant::Metaball => Box::new(metaball::Metaball::new(w, h, rng)),
+            Variant::Constellation => Box::new(constellation::Constellation::new(w, h, rng)),
+            Variant::Ascii => Box::new(ascii::Ascii::new(w, h, rng)),
             Variant::Flappy => Box::new(games::flappy::Flappy::new(w, h, rng)),
             Variant::Runner => Box::new(games::runner::Runner::new(w, h, rng)),
             Variant::Timing => Box::new(games::timing::Timing::new(w, h, rng)),
@@ -372,6 +457,24 @@ mod tests {
         assert_eq!(Variant::Hologram.as_str(), "hologram");
         assert_eq!(Variant::parse(" SUPERNOVA "), Variant::Supernova);
         assert_eq!(Variant::Supernova.as_str(), "supernova");
+        assert_eq!(Variant::parse("Flames"), Variant::Fire);
+        assert_eq!(Variant::parse(" rain "), Variant::Rain);
+        assert_eq!(Variant::parse("FIREWORKS"), Variant::Fireworks);
+        assert_eq!(Variant::parse("snowfall"), Variant::Snow);
+        assert_eq!(Variant::parse("lava-lamp"), Variant::Lava);
+        assert!(!Variant::Lava.is_game());
+        assert_eq!(Variant::parse("turing"), Variant::Reaction);
+        assert_eq!(Variant::parse("Spiro"), Variant::Spirograph);
+        assert_eq!(Variant::parse(" KALEIDOSCOPE "), Variant::Kaleidoscope);
+        assert_eq!(Variant::parse("double-pendulum"), Variant::Pendulum);
+        assert_eq!(Variant::parse("oscilloscope"), Variant::Lissajous);
+        assert_eq!(Variant::parse("outrun"), Variant::Synthwave);
+        assert_eq!(Variant::parse(" CRT "), Variant::Crt);
+        assert_eq!(Variant::parse("3d-pipes"), Variant::Pipes);
+        assert_eq!(Variant::parse("radar"), Variant::Radar);
+        assert_eq!(Variant::parse("metaballs"), Variant::Metaball);
+        assert_eq!(Variant::parse("plexus"), Variant::Constellation);
+        assert_eq!(Variant::parse("ASCII"), Variant::Ascii);
         assert_eq!(Variant::parse(" Flappy "), Variant::Flappy);
         assert_eq!(Variant::parse("wonderboy"), Variant::Runner);
         assert_eq!(Variant::parse("TIMING"), Variant::Timing);
