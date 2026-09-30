@@ -1,0 +1,117 @@
+# Release on every merge to main: pick the version bump from the commit
+# subjects since the last release (see scripts/release-bump.mjs), test and
+# build, push the version commit and tag, publish to npm with Trusted
+# Publishing (no token), and create a GitHub Release.
+#
+# Re-running a failed run picks up where it left off: whatever version is
+# in package.json gets published (and released) if npm doesn't have it yet.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write # push the version commit and tag, create the release
+  id-token: write # npm Trusted Publishing (OIDC)
+
+# One release at a time, in merge order.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # The version commit this workflow pushes must not start another release.
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the latest main
+        uses: actions/checkout@v5
+        with:
+          # Not the triggering commit: an earlier queued run may have pushed a
+          # version commit since, and releases have to build on top of it.
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Trusted Publishing needs npm 11.5.1 or later.
+      - run: npm install -g npm@latest
+
+      - run: npm ci
+
+      - name: Plan the release
+        id: plan
+        run: |
+          bump=$(node scripts/release-bump.mjs)
+          if [ "$bump" != "none" ]; then
+            npm version "$bump" --no-git-tag-version
+          fi
+          version=$(node -p "require('./package.json').version")
+          name=$(node -p "require('./package.json').name")
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            publish=false
+          else
+            publish=true
+          fi
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "Bump: $bump, version: $version, publish: $publish" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Rust
+        if: steps.plan.outputs.publish == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.plan.outputs.publish == 'true'
+
+      - name: Install wasm-pack
+        if: steps.plan.outputs.publish == 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.15.0
+
+      - name: Test
+        if: steps.plan.outputs.publish == 'true'
+        run: npm test
+
+      - name: Build
+        if: steps.plan.outputs.publish == 'true'
+        run: npm run build
+
+      - name: Push the version commit and tag
+        if: steps.plan.outputs.bump != 'none'
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(release): v$VERSION"
+          git tag "v$VERSION"
+          git push origin HEAD:main "v$VERSION"
+
+      - name: Publish to npm
+        if: steps.plan.outputs.publish == 'true'
+        run: npm publish --access public
+
+      - name: Create the GitHub Release
+        if: steps.plan.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          if ! git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            git tag "v$VERSION"
+            git push origin "v$VERSION"
+          fi
+          if ! gh release view "v$VERSION" >/dev/null 2>&1; then
+            gh release create "v$VERSION" --generate-notes --verify-tag
+          fi

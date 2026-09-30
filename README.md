@@ -551,6 +551,35 @@ to production. External fork contributions may require approval in Vercel.
 
 See [Vercel's GitHub integration documentation](https://vercel.com/docs/git/vercel-for-github).
 
+### Releasing
+
+Releases are automatic: every merge to `main` runs
+[`.github/workflows/release.yml`](.github/workflows/release.yml), which
+picks the version bump from the [Conventional Commit](https://www.conventionalcommits.org/)
+subjects since the last `v*` tag (for squash merges, that's the PR title):
+
+| Commit subject | Bump |
+|---|---|
+| `feat!: ...`, `fix!: ...`, or a `BREAKING CHANGE:` footer | major |
+| `feat: ...` | minor |
+| `fix: ...`, `perf: ...`, `refactor: ...`, `revert: ...` | patch |
+| anything else (`docs:`, `chore:`, `ci:`, `test:`, ...) | no release |
+
+It then tests and builds, pushes a `chore(release): vX.Y.Z` commit and a
+`vX.Y.Z` tag to `main`, publishes to npm, and creates a GitHub Release
+with generated notes. **Don't bump `version` in `package.json` by hand.**
+Re-running a failed run is safe: it publishes whatever version
+`package.json` holds if npm doesn't have it yet.
+
+Publishing uses npm [Trusted Publishing](https://docs.npmjs.com/trusted-publishers)
+(OIDC, no token), which has to be set up once on npmjs.com: package
+**Settings → Trusted Publisher → GitHub Actions**, with owner
+`Pyongpyong`, repository `useless-buttons` and workflow `release.yml`.
+If `main` is protected, the workflow's bot needs to be allowed to push to it.
+
+`scripts/release-bump.mjs` can be run locally to see what the next
+release would be: `node scripts/release-bump.mjs`.
+
 ### Why `cargo test` and not wasm-bindgen-test
 
 The `#[wasm_bindgen]` layer in `src/lib.rs` is deliberately **not** gated
@@ -566,6 +595,8 @@ Cargo.toml, src/            Rust: sims + software rasterizer (no Canvas2D)
 src/sims/games/             Rust: the game variants (flappy, runner, timing, crossy, ...)
 src-ts/                     TypeScript: web component, scheduler, wasm glue
 scripts/inline-wasm.mjs     base64-inlines pkg/*.wasm into a TS constant
+scripts/release-bump.mjs    picks the next release's semver bump from commit subjects
+.github/workflows/          release.yml: version, publish to npm, GitHub Release
 examples/preview.rs         renders preview/*.gif from the native lib
 demo/index.html             manual browser smoke test + theme controls
 ```
