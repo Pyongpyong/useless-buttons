@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SnoozeCloud — a useless-buttons example</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f1fb;
+    --fg: #1d1a2b;
+    --muted: #5d5872;
+    --card: #ffffff;
+    --border: #ddd6ee;
+    --accent: #6b4fd8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #13111c;
+      --fg: #eeeaf7;
+      --muted: #a39db8;
+      --card: #1c1928;
+      --border: #332d47;
+      --accent: #a592ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 1.25rem 1rem 4rem;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 2rem; }
+  .back { color: var(--muted); font-size: .9rem; text-underline-offset: .2em; }
+  .back:focus-visible, a:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+  header { text-align: center; padding-top: 1.5rem; }
+  .logo { font-size: 2.6rem; line-height: 1; }
+  h1 { margin: .4rem 0 0; font-size: clamp(2rem, 7vw, 3rem); letter-spacing: -.02em; }
+  .tagline { margin: .3rem 0 0; color: var(--muted); font-style: italic; }
+  .pitch {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+  }
+  .pitch p { margin: 0 0 .75rem; }
+  .pitch p:last-child { margin-bottom: 0; }
+  .gate { display: flex; flex-direction: column; align-items: center; gap: .6rem; text-align: center; }
+  .gate useless-button {
+    --ub-accent: #ffffff;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+  .gate useless-button::part(button) { min-width: min(320px, 90vw); min-height: 84px; }
+  .gate .hint { margin: 0; font-size: .85rem; color: var(--muted); max-width: 44ch; }
+  .reroll {
+    font: inherit; font-size: .85rem;
+    color: var(--muted); background: none; border: 0; padding: .25rem .5rem;
+    text-decoration: underline; text-underline-offset: .2em; cursor: pointer;
+  }
+  .reroll:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 4px; }
+  .details { display: flex; flex-direction: column; gap: 1.5rem; }
+  .details[hidden] { display: none; }
+  .details.revealed { animation: rise .5s ease-out; }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+  @media (prefers-reduced-motion: reduce) { .details.revealed { animation: none; } }
+  h2 { margin: 0 0 .6rem; font-size: 1.35rem; }
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .75rem; }
+  .feature {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1rem;
+  }
+  .feature h3 { margin: 0 0 .35rem; font-size: 1rem; }
+  .feature p { margin: 0; font-size: .92rem; color: var(--muted); }
+  .pricing { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .75rem; }
+  .plan { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1rem; }
+  .plan .price { font-size: 1.6rem; font-weight: 700; margin: .1rem 0 .3rem; }
+  .plan p { margin: 0; font-size: .92rem; color: var(--muted); }
+  dl { margin: 0; }
+  dt { font-weight: 600; margin-top: .75rem; }
+  dd { margin: .15rem 0 0; color: var(--muted); }
+  .signup { display: flex; flex-direction: column; align-items: center; gap: .5rem; text-align: center; }
+  .signup useless-button { --ub-accent: #ffffff; font-weight: 700; }
+  .signup-reply { min-height: 1.5em; margin: 0; color: var(--muted); font-style: italic; }
+  footer { text-align: center; font-size: .8rem; color: var(--muted); }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="./index.html">← Back to the useless-buttons demo</a>
+
+  <header>
+    <div class="logo" aria-hidden="true">💤☁️</div>
+    <h1>SnoozeCloud</h1>
+    <p class="tagline">Enterprise nap scheduling. It's fine. Probably.</p>
+  </header>
+
+  <section class="pitch" aria-label="What it is">
+    <p>Ugh, okay. So. SnoozeCloud schedules your naps, syncs them across all your devices,
+      and uses AI to tell you when you're tired. You were already tired. That's the product.</p>
+    <p>There are more details. Pricing, features, the whole thing. If you <em>really</em> want
+      to know, beat the game in the button below and we'll show you. Honestly we'd rather you
+      didn't, but here we are.</p>
+  </section>
+
+  <section class="gate" aria-label="The button">
+    <useless-button id="gate" variant="flappy" text-fx="spin">Fine. Show me the details.</useless-button>
+    <p class="hint" id="gate-hint">Clear the game to unlock the button. It restarts on its own if you lose. Obviously.</p>
+    <button class="reroll" id="reroll" type="button">Not this game. Give me a different one.</button>
+  </section>
+
+  <section class="details" id="details" hidden aria-labelledby="details-title">
+    <div>
+      <h2 id="details-title">Oh. You actually did it.</h2>
+      <p>Fine. Here's everything. Don't say we didn't warn you.</p>
+    </div>
+
+    <div>
+      <h2>Features, I guess</h2>
+      <div class="features">
+        <div class="feature">
+          <h3>Nap Sync™</h3>
+          <p>Your nap starts on your phone and continues on your laptop. You'll still be lying on the couch, though.</p>
+        </div>
+        <div class="feature">
+          <h3>AI Drowsiness Detection</h3>
+          <p>Detects when you're tired. It's always right, because you always are.</p>
+        </div>
+        <div class="feature">
+          <h3>Snooze Analytics</h3>
+          <p>Charts of your naps. Longer bars mean more nap. We had a designer look at it once.</p>
+        </div>
+        <div class="feature">
+          <h3>Team Naps</h3>
+          <p>Schedule the whole team's nap at once. Great for morale. Terrible for deadlines.</p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2>Pricing</h2>
+      <div class="pricing">
+        <div class="plan">
+          <strong>Free</strong>
+          <div class="price">$0</div>
+          <p>We couldn't be bothered to set up billing.</p>
+        </div>
+        <div class="plan">
+          <strong>Pro</strong>
+          <div class="price">$0</div>
+          <p>Same thing, but you get to say "Pro".</p>
+        </div>
+        <div class="plan">
+          <strong>Enterprise</strong>
+          <div class="price">Call us</div>
+          <p>We won't pick up. We're napping.</p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2>FAQ</h2>
+      <dl>
+        <dt>Is this a real product?</dt>
+        <dd>No. It's an example page for useless-buttons. Is anything real, though.</dd>
+        <dt>Why was the info behind a game?</dt>
+        <dd>Because the button said so. Also, it filters out people who aren't serious about napping.</dd>
+        <dt>Can I get the details without playing?</dt>
+        <dd>If your system asks for reduced motion, the game unlocks on its own. Otherwise, no. Keep playing.</dd>
+      </dl>
+    </div>
+
+    <div class="signup">
+      <h2>Sign up</h2>
+      <useless-button id="signup" variant="aurora" text-fx="aurora">Sign me up, I guess</useless-button>
+      <p class="signup-reply" id="signup-reply" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <footer>
+    Made with <a href="https://www.npmjs.com/package/useless-buttons">useless-buttons</a>.
+    SnoozeCloud is made up.
+  </footer>
+</main>
+
+<script type="module">
+  import "../dist/index.js";
+
+  const GAMES = [
+    "flappy", "runner", "timing", "crossy", "django", "balloon", "memory", "dodge",
+    "breakout", "invaders", "pong", "mole", "stack", "heli", "numbers", "rhythm",
+    "survivor", "frog", "crawler", "shooter",
+  ];
+  const gate = document.getElementById("gate");
+  const details = document.getElementById("details");
+  const hint = document.getElementById("gate-hint");
+  const reroll = document.getElementById("reroll");
+
+  function pickGame() {
+    const current = gate.getAttribute("variant");
+    const others = GAMES.filter((g) => g !== current);
+    gate.setAttribute("variant", others[Math.floor(Math.random() * others.length)]);
+  }
+
+  function reveal({ scroll }) {
+    if (!details.hidden) return;
+    details.hidden = false;
+    details.classList.add("revealed");
+    hint.textContent = "Unlocked. Ugh. Scroll down, it's all there.";
+    reroll.hidden = true;
+    if (scroll) {
+      const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+      details.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+    }
+  }
+
+  pickGame();
+  reroll.addEventListener("click", pickGame);
+  gate.addEventListener("game-clear", () => reveal({ scroll: true }));
+  // Once unlocked, the button itself works like any button: take them to the details.
+  gate.addEventListener("click", () => {
+    reveal({ scroll: false });
+    details.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  // Under reduced motion games start unlocked (no game-clear event), so just show it.
+  customElements.whenDefined("useless-button").then(() => {
+    if (!gate.locked) reveal({ scroll: false });
+  });
+
+  const replies = [
+    "Okay. We'll think about it.",
+    "Signed up. Probably. We didn't check.",
+    "You're on the list. The list is a sticky note.",
+    "Great. Now go take a nap.",
+  ];
+  let replyIndex = 0;
+  document.getElementById("signup").addEventListener("click", () => {
+    document.getElementById("signup-reply").textContent = replies[replyIndex++ % replies.length];
+  });
+</script>
+</body>
+</html>

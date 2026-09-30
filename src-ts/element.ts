@@ -294,7 +294,24 @@ span[part="label"].locked {
 :host([text-fx="zoom"]) .label-fx,
 :host([text-fx="ricochet"]) .label-fx,
 :host([text-fx="corridor"]) .label-fx,
-:host([text-fx="streak"]) .label-fx {
+:host([text-fx="streak"]) .label-fx,
+:host([text-fx="fire"]) .label-fx,
+:host([text-fx="rain"]) .label-fx,
+:host([text-fx="fireworks"]) .label-fx,
+:host([text-fx="snow"]) .label-fx,
+:host([text-fx="lava"]) .label-fx,
+:host([text-fx="reaction"]) .label-fx,
+:host([text-fx="spirograph"]) .label-fx,
+:host([text-fx="kaleidoscope"]) .label-fx,
+:host([text-fx="pendulum"]) .label-fx,
+:host([text-fx="lissajous"]) .label-fx,
+:host([text-fx="synthwave"]) .label-fx,
+:host([text-fx="crt"]) .label-fx,
+:host([text-fx="pipes"]) .label-fx,
+:host([text-fx="radar"]) .label-fx,
+:host([text-fx="metaball"]) .label-fx,
+:host([text-fx="constellation"]) .label-fx,
+:host([text-fx="ascii"]) .label-fx {
   display: inline-block;
   position: absolute;
   inset: 0;

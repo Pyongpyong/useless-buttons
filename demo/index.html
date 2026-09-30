@@ -36,6 +36,11 @@
   .page-title .name { display: block; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.15; }
   .page-title .tagline { display: block; margin-top: .5rem; font-size: clamp(.9rem, 2.5vw, 1.2rem); font-weight: 400; }
   p.sub { margin: 0; opacity: .7; text-align: center; max-width: 40ch; }
+  .bad-ux {
+    margin: 0; padding: .35rem .9rem; border-radius: 999px;
+    font-size: .85rem; font-weight: 600; letter-spacing: .01em; text-align: center;
+    color: var(--fg); background: var(--card); border: 1px dashed var(--border);
+  }
   .project-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.5rem; }
   .project-links a { color: var(--fg); text-underline-offset: .2em; }
   .project-links a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
@@ -127,6 +132,7 @@
 </style>
 </head>
 <body>
+  <p class="bad-ux">Buttons for bad UX. Give your users a bad experience.</p>
   <h1 class="page-title">
     <span class="name">useless-buttons</span>
     <span class="tagline">a collection of needlessly elaborate buttons</span>
@@ -135,6 +141,7 @@
   <nav class="project-links" aria-label="Project links">
     <a href="https://www.npmjs.com/package/useless-buttons">npm</a>
     <a href="https://github.com/Pyongpyong/useless-buttons">GitHub</a>
+    <a href="./example.html">Example: a very lazy product page</a>
   </nav>
 
   <details class="settings-menu" id="settings-menu">
@@ -191,6 +198,23 @@
         <option value="ricochet">ricochet</option>
         <option value="corridor">corridor</option>
         <option value="streak">streak</option>
+        <option value="fire">fire</option>
+        <option value="rain">rain</option>
+        <option value="fireworks">fireworks</option>
+        <option value="snow">snow</option>
+        <option value="lava">lava</option>
+        <option value="reaction">reaction</option>
+        <option value="spirograph">spirograph</option>
+        <option value="kaleidoscope">kaleidoscope</option>
+        <option value="pendulum">pendulum</option>
+        <option value="lissajous">lissajous</option>
+        <option value="synthwave">synthwave</option>
+        <option value="crt">crt</option>
+        <option value="pipes">pipes</option>
+        <option value="radar">radar</option>
+        <option value="metaball">metaball</option>
+        <option value="constellation">constellation</option>
+        <option value="ascii">ascii</option>
       </select>
     </label>
   </div>
@@ -462,10 +486,106 @@
       <p>Green code streams fall continuously with bright heads and fading tails.</p>
     </div>
     <div class="card">
-      <h3>Typo'd variant (fallback check)</h3>
-      <useless-button variant="SWRAM " seed="5" text-fx="none">Typo fallback</useless-button>
-      <code class="fx-value">text-fx="none"</code>
-      <p><code>variant="SWRAM "</code> — should fall back to swarm.</p>
+      <h3>fire</h3>
+      <useless-button variant="fire" seed="49" style="--ub-accent: #fff3d6" text-fx="fire">Light it up</useless-button>
+      <code class="fx-value">text-fx="fire"</code>
+      <p>Demoscene pixel fire: heat rises from the bottom, cools and drifts, and every so often flares up high.</p>
+    </div>
+    <div class="card">
+      <h3>rain</h3>
+      <useless-button variant="rain" seed="50" style="--ub-accent: #eef6ff" text-fx="rain">Rainy day</useless-button>
+      <code class="fx-value">text-fx="rain"</code>
+      <p>Rain on a window at night: droplets bead on the glass, and big drops run down, swallowing them, past blurry city lights.</p>
+    </div>
+    <div class="card">
+      <h3>fireworks</h3>
+      <useless-button variant="fireworks" seed="51" style="--ub-accent: #fffbe8" text-fx="fireworks">Celebrate</useless-button>
+      <code class="fx-value">text-fx="fireworks"</code>
+      <p>Rockets climb over a city skyline and burst into spheres, rings and drooping willows of glowing embers.</p>
+    </div>
+    <div class="card">
+      <h3>snow</h3>
+      <useless-button variant="snow" seed="52" style="--ub-accent: #eaf6ff" text-fx="snow">Let it snow</useless-button>
+      <code class="fx-value">text-fx="snow"</code>
+      <p>Snow falls in three depths on a gusting wind, piling into a drift in front of distant pines.</p>
+    </div>
+    <div class="card">
+      <h3>lava</h3>
+      <useless-button variant="lava" seed="53" style="--ub-accent: #fff0e0" text-fx="lava">Groovy</useless-button>
+      <code class="fx-value">text-fx="lava"</code>
+      <p>A lava lamp: warm wax floats up, cools, sinks back down, and merges and pinches apart on the way.</p>
+    </div>
+    <div class="card">
+      <h3>reaction</h3>
+      <useless-button variant="reaction" seed="54" style="--ub-accent: #e6fff8" text-fx="reaction">Mutate</useless-button>
+      <code class="fx-value">text-fx="reaction"</code>
+      <p>Gray-Scott reaction-diffusion: two chemicals spread and react, growing coral, spots and zebra stripes that keep changing.</p>
+    </div>
+    <div class="card">
+      <h3>spirograph</h3>
+      <useless-button variant="spirograph" seed="55" style="--ub-accent: #3a2a6a" text-fx="spirograph">Round and round</useless-button>
+      <code class="fx-value">text-fx="spirograph"</code>
+      <p>Gears roll inside rings while pens trace looping curves; each finished drawing slowly fades as a new one starts.</p>
+    </div>
+    <div class="card">
+      <h3>kaleidoscope</h3>
+      <useless-button variant="kaleidoscope" seed="56" style="--ub-accent: #ffffff" text-fx="kaleidoscope">Look inside</useless-button>
+      <code class="fx-value">text-fx="kaleidoscope"</code>
+      <p>A row of mirrored rosettes: drifting glass chips reflected eight ways, each rosette turning its own way.</p>
+    </div>
+    <div class="card">
+      <h3>pendulum</h3>
+      <useless-button variant="pendulum" seed="57" style="--ub-accent: #f4f0ff" text-fx="pendulum">Butterfly effect</useless-button>
+      <code class="fx-value">text-fx="pendulum"</code>
+      <p>Six double pendulums released a thousandth of a radian apart swing as one, then fly apart. Chaos, on a loop.</p>
+    </div>
+    <div class="card">
+      <h3>lissajous</h3>
+      <useless-button variant="lissajous" seed="58" style="--ub-accent: #caffd8" text-fx="lissajous">Signal found</useless-button>
+      <code class="fx-value">text-fx="lissajous"</code>
+      <p>An oscilloscope in X-Y mode: a green phosphor Lissajous figure turns as its phase drifts and morphs between frequency ratios.</p>
+    </div>
+    <div class="card">
+      <h3>synthwave</h3>
+      <useless-button variant="synthwave" seed="59" style="--ub-accent: #ffe6fb" text-fx="synthwave">Drive into the sunset</useless-button>
+      <code class="fx-value">text-fx="synthwave"</code>
+      <p>An 80s sunset: a striped sun behind neon-rimmed mountains and a glowing grid rushing toward you.</p>
+    </div>
+    <div class="card">
+      <h3>crt</h3>
+      <useless-button variant="crt" seed="60" style="--ub-accent: #ffffff" text-fx="crt">Please stand by</useless-button>
+      <code class="fx-value">text-fx="crt"</code>
+      <p>A CRT on the blink: jittering, tearing color bars that bleed apart, bursts of static, scanlines and a rolling bar.</p>
+    </div>
+    <div class="card">
+      <h3>pipes</h3>
+      <useless-button variant="pipes" seed="61" style="--ub-accent: #ffffff" text-fx="pipes">Screensaver mode</useless-button>
+      <code class="fx-value">text-fx="pipes"</code>
+      <p>The old 3D Pipes screensaver: shiny pipes grow and turn with ball joints until the screen fills, then it starts over.</p>
+    </div>
+    <div class="card">
+      <h3>radar</h3>
+      <useless-button variant="radar" seed="62" style="--ub-accent: #d8ffe2" text-fx="radar">Contact!</useless-button>
+      <code class="fx-value">text-fx="radar"</code>
+      <p>A radar scope: a sweep with a fading afterglow lights up drifting contacts, flanked by level meters and a signal trace.</p>
+    </div>
+    <div class="card">
+      <h3>metaball</h3>
+      <useless-button variant="metaball" seed="63" style="--ub-accent: #ffffff" text-fx="metaball">Blob together</useless-button>
+      <code class="fx-value">text-fx="metaball"</code>
+      <p>Glossy 3D metaballs: lit candy spheres with highlights, rims and floor shadows, melting into each other as they drift.</p>
+    </div>
+    <div class="card">
+      <h3>constellation</h3>
+      <useless-button variant="constellation" seed="64" style="--ub-accent: #eef4ff" text-fx="constellation">Connect the dots</useless-button>
+      <code class="fx-value">text-fx="constellation"</code>
+      <p>Stars drift across a dark sky, joined by lines that fade as they separate and vanish when they drift too far apart.</p>
+    </div>
+    <div class="card">
+      <h3>ascii</h3>
+      <useless-button variant="ascii" seed="65" style="--ub-accent: #b8ffcc" text-fx="ascii">Hello, world</useless-button>
+      <code class="fx-value">text-fx="ascii"</code>
+      <p>Spinning donuts drawn in ASCII characters, <code>donut.c</code> style, in terminal green.</p>
     </div>
   </div>
   </section>

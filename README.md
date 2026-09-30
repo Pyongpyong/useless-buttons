@@ -1,5 +1,7 @@
 # useless-buttons
 
+**Buttons for bad UX. Give your users a bad experience.**
+
 [npm](https://www.npmjs.com/package/useless-buttons) · [Live demo](https://useless-buttons-zeta.vercel.app) · [GitHub](https://github.com/Pyongpyong/useless-buttons)
 
 > A collection of needlessly elaborate buttons — buttons that do far more
@@ -191,6 +193,23 @@ react to hovering, pressing or clicking.
 | `hologram` | Rotating wireframe slices float above a scan grid. | Gentle camera zoom and roll. |
 | `supernova` | A boiling star pulses and rotates on a synthetic 144 BPM beat, with sharp zoom kicks and a fiery corona. | No audio input or playback. |
 | `matrix` | Continuous green bitmap code rain with bright leading glyphs and fading tails. | Each column falls at its own speed with its own tail length. |
+| `fire` (alias `flames`) | The classic demoscene pixel fire: a heat grid fed from the bottom row, where every cell takes the heat of the one below, loses a random bit and drifts a random step sideways. Heat maps through black, red, orange and yellow to white. | Every few seconds the base flares and the flames leap higher. |
+| `rain` (alias `rainy-window`) | Rain on a window at night: blurry city lights glow behind the glass while droplets bead all over it. | Now and then a big drop runs down, wobbling, swallowing the droplets in its path (growing as it does) and leaving a few new beads behind. |
+| `fireworks` | A fireworks show over a city skyline. The sky is darkened a little each frame instead of cleared, so everything leaves a glowing trail. | Rockets climb on a trail of sparks and burst into a sphere, a ring or a drooping willow, whose embers fall under gravity and drag, twinkle and fade. |
+| `snow` (alias `snowfall`) | Snow falling at night in three depths — the nearer, the bigger, faster and brighter — in front of a row of distant pines. | Flakes sway on their own and on a slowly gusting wind; the near ones pile into a drift that slumps smooth and settles at a steady depth. |
+| `reaction` (aliases `reaction-diffusion`, `turing`) | Gray-Scott reaction-diffusion: chemical U feeds in everywhere, V eats U to make more of itself and slowly decays, and from a few seeds that alone grows coral, spots and worm-like stripes (Turing patterns). | The feed rate drifts slowly so the pattern keeps changing character, and fresh seeds keep landing so it never dies out. |
+| `spirograph` (alias `spiro`) | A toy Spirograph: a gear rolls inside a fixed ring while a pen in it traces a hypotrochoid. Wide buttons get several side by side. | When a curve closes, a new one starts with a different gear, pen hole and ink; finished curves slowly fade from the paper. |
+| `kaleidoscope` | A row of kaleidoscope rosettes: each pixel's angle is folded into one mirrored wedge showing drifting glass chips, with dark lead lines where chips meet. | Neighboring rosettes turn opposite ways from different angles, and the colors cycle. |
+| `pendulum` (aliases `double-pendulum`, `chaos`) | Six double pendulums on one pivot, released from angles a thousandth of a radian apart, each dragging a colored trail. | They swing as one for a few seconds, then fly apart; every 20 seconds they're reset to a new angle. |
+| `lissajous` (aliases `oscilloscope`, `scope`) | An oscilloscope in X-Y mode: a green phosphor Lissajous figure over a graticule. | The phase drifts so the figure seems to turn, and every few seconds the frequency ratio eases to the next (1:2, 3:2, 3:4, ...). |
+| `synthwave` (aliases `retrowave`, `outrun`) | An 80s retro sunset: a striped sun sinking behind neon-rimmed mountains, twinkling stars in a violet sky, and a glowing perspective grid. | The grid rushes toward you and the sun's stripes drift down. |
+| `crt` (aliases `tv`, `no-signal`) | A CRT television on the blink: color bars with scanlines, a slow rolling bar, flicker and darkened corners; red is read a little to the side so the colors bleed apart. | The picture jitters and tears sideways at random, and every few seconds the signal drops to snowy static. |
+| `pipes` (alias `3d-pipes`) | The old 3D Pipes screensaver: pipes shaded across their width like lit cylinders, with ball joints at every bend. | Pipes grow cell by cell and turn at random; a boxed-in pipe stops and a new one starts elsewhere in a new color; when the screen is mostly full it's wiped and starts over. |
+| `radar` | A radar scope with range rings and a crosshair; on wide buttons, level meters and a scrolling signal trace flank it. | The sweep turns with a fading afterglow, and drifting contacts light up only as it passes over them. |
+| `metaball` (aliases `metaballs`, `blobs`) | Glossy 3D metaballs. Unlike `lava`'s flat wax, each pixel gets a surface normal (the field becomes a height that's exactly a hemisphere for a lone ball), lit with diffuse light, a specular highlight, a Fresnel rim and a sky reflection, over a floor with soft shadows. | Candy-colored balls drift in depth (nearer ones look bigger) and melt into each other where they meet. |
+| `constellation` (aliases `network`, `plexus`) | The classic particle network: bright points drifting across a dark sky. | Any two points closer than a set distance are joined by a line that fades as they separate and vanishes when they drift too far apart, so constellations keep forming and breaking up. |
+| `ascii` (aliases `ascii-art`, `donut`) | ASCII art in the spirit of `donut.c`: spinning 3D tori projected onto a grid of character cells, each shaded with one of `.,-~:;=!*#$@` from a built-in bitmap font, in terminal green. | Wide buttons get several donuts, each spinning on its own axes and speed. |
+| `lava` (alias `lava-lamp`) | A lava lamp: a metaball field of tall wax blobs, shaded from hot yellow at the core to magenta at the rim, with a soft glow. | Blobs warm at the bottom, float up, cool at the top and sink, merging and pinching apart as they pass. |
 
 #### Cinematic effects
 
@@ -279,6 +298,23 @@ button's box rather than stay politely contained inside it.
 | `"corridor"` | Letters move through perspective depth and turn like corridor panels. |
 | `"streak"` | Letters stretch horizontally, trailing six cyan light echoes. |
 | `"matrix"` | Readable letters cascade vertically with bright green heads and fading afterimages. |
+| `"fire"` | Letters flicker and stretch upward in flame colors, with orange-to-red glow rising off them. |
+| `"rain"` | Pale, wet-looking letters each grow a drip beneath them that falls and starts over. |
+| `"fireworks"` | Letters pop one after another, scaling up in a burst of glow, in a fresh color every time. |
+| `"snow"` | Icy letters wear a cap of snow, sway gently, and now and then shiver. |
+| `"lava"` | Gooey letters squash and stretch in warm colors as they slowly rise and sink. |
+| `"reaction"` | Letters swell and pinch like dividing cells, each on its own rhythm, shifting between teal and violet. |
+| `"spirograph"` | Each letter rides an epicycle (a small circle carried on a bigger one) in cycling pen colors. |
+| `"kaleidoscope"` | Mirror-symmetric: letters either side of the middle turn opposite ways as their colors cycle. |
+| `"pendulum"` | Letters swing from their tops like weights, on two mixed frequencies. |
+| `"lissajous"` | Flickering green phosphor letters, each tracing a tiny 3:2 Lissajous figure. |
+| `"synthwave"` | Slanted neon lettering, pink to cyan across the word, with a pink glow and a cyan drop shadow that pulse to a beat. |
+| `"crt"` | Colors split red and cyan; now and then a letter glitches sideways, and the whole label flickers. |
+| `"pipes"` | Chunky letters extruded in 3D, each popping in turn. |
+| `"radar"` | Letters light up green as a sweep passes over them, then fade. |
+| `"metaball"` | Glossy candy letters with a highlight on top that swell and settle like blobs. |
+| `"constellation"` | Letters twinkle like stars and drift slowly, each on its own path. |
+| `"ascii"` | Letters scramble through random ASCII characters, decode left to right in a monospace font, hold, and scramble again. |
 | `"tunnel"` | Eighteen colored depth echoes behind the real label, with a gently changing perspective tilt. Works independently of the background variant and respects reduced motion. |
 | `"slot"` | Each character becomes a slot-machine reel spinning about its X axis. Reels decelerate (ease-out) through a whole number of turns, so they always come to rest face-on rather than stopped edge-on and invisible, and they stop left to right, hold the result for a beat, then spin up again. Turn count is re-rolled per character per cycle so the reels never fall into lockstep, and faces darken as they turn away, the way a physical drum would. |
 | `"none"` | Opt out: static label, no animation. |
@@ -378,7 +414,7 @@ declare global {
           variant?: string;
           seed?: number;
           fps?: number;
-          "text-fx"?: "none" | "spin" | "skew" | "explode" | "snake" | "slot" | "tunnel" | "blackhole" | "chrome" | "plasma" | "stained-glass" | "aurora" | "ripple" | "hologram" | "supernova" | "matrix" | "zoom" | "ricochet" | "corridor" | "streak";
+          "text-fx"?: "none" | "spin" | "skew" | "explode" | "snake" | "slot" | "tunnel" | "blackhole" | "chrome" | "plasma" | "stained-glass" | "aurora" | "ripple" | "hologram" | "supernova" | "matrix" | "zoom" | "ricochet" | "corridor" | "streak" | "fire" | "rain" | "fireworks" | "snow" | "lava" | "reaction" | "spirograph" | "kaleidoscope" | "pendulum" | "lissajous" | "synthwave" | "crt" | "pipes" | "radar" | "metaball" | "constellation" | "ascii";
         },
         HTMLElement
       >;
@@ -599,6 +635,7 @@ scripts/release-bump.mjs    picks the next release's semver bump from commit sub
 .github/workflows/          release.yml: version, publish to npm, GitHub Release
 examples/preview.rs         renders preview/*.gif from the native lib
 demo/index.html             manual browser smoke test + theme controls
+demo/example.html           example page: a lazy product page gated behind a game button
 ```
 
 
