@@ -18,8 +18,23 @@ function hash01(n: number): number {
   return x - Math.floor(x);
 }
 
+/** The slice of a style declaration the painters write; a real `CSSStyleDeclaration` satisfies it. */
+export interface FxStyle {
+  transform: string;
+  textShadow: string;
+  color: string;
+  opacity: string;
+  fontFamily: string;
+}
+/** What a painter needs from a character: styles, its original glyph, and its visible text. */
+export interface FxCharElement {
+  style: FxStyle;
+  dataset: { ch?: string };
+  textContent: string | null;
+}
+
 export function paintSpectacleChar(
-  mode: SpectacleTextMode, el: HTMLElement, index: number, count: number,
+  mode: SpectacleTextMode, el: FxCharElement, index: number, count: number,
   time: number,
 ): void {
   const clock = time;
