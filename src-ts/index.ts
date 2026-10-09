@@ -2,6 +2,11 @@ import { UselessButtonElement } from "./element.js";
 
 export { UselessButtonElement };
 export type { UselessButton } from "./wasm.js";
+export { createBackground } from "./background.js";
+export type { Background, BackgroundOptions } from "./background.js";
+export { SPECTACLE_TEXT_MODES } from "./spectacle-text.js";
+export { TEXT_FX_VALUES, TextFxEngine, TextFxSampler } from "./text-fx.js";
+export type { FxBlock, FxChar, FxCharElement, FxChars, FxStyle, TextFx } from "./text-fx.js";
 
 const DEFAULT_TAG = "useless-button";
 

@@ -247,6 +247,43 @@ Mandelbrot's interior, the dungeon's floor), but `--ub-accent` is no
 longer read by any simulation — it's applied purely as the button
 label's own text color instead (see below).
 
+## Without the element
+
+The simulations and the label animations are also available as plain functions,
+for rendering offline (a video export, a screenshot, a test) where you own the
+clock and there is no `<useless-button>` in the page. Neither one registers
+observers, media-query listeners or animation-frame callbacks.
+
+```js
+import { createBackground, TextFxSampler } from "useless-buttons";
+
+// A visual variant's pixels at any time you choose. Games are rejected.
+const bg = createBackground({
+  variant: "aurora", width: 1280, height: 720, seed: 30,
+  paper: 0xf5f3ec, ink: 0x1a1a1a, accent: 0xf2faff, // 0xRRGGBB, optional
+});
+for (let i = 0; i < 90; i++) bg.tick(1 / 30);
+const png = bg.toDataURL();   // or bg.imageData() for a copy of the pixels
+bg.free();                    // release the native simulation
+
+// A label animation at any time, painted onto objects that carry a `style`.
+const sampler = new TextFxSampler();
+const block = { style: { transform: "", textShadow: "" } };
+const chars = [..."Hi"].map((ch, index) => ({
+  el: { style: { transform: "", textShadow: "", color: "", opacity: "", fontFamily: "" },
+        dataset: {}, textContent: ch },
+  index, stagger: index * 0.02,
+}));
+// `chars.length` is the word length that centered/mirrored modes use.
+sampler.sample("zoom", 1.25, block, chars);
+```
+
+`TextFxSampler.sample(mode, seconds, block, chars)` is a pure function of
+`seconds` for every mode except `spin`, which integrates a randomized speed
+curve; it is replayed in fixed 1/30 s steps, so its result still does not depend
+on which times were asked before. For frame-by-frame playback use `TextFxEngine`
+(`reset`, `update(mode, dt, block, chars)`), which is what the element runs.
+
 ## Attributes / properties
 
 | Attribute | Property | Default | Notes |
