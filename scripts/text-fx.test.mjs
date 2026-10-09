@@ -34,9 +34,20 @@ const target = () => ({
     {},
   ),
 });
+// Math.sin/cos/exp differ in the last bits between platforms (the golden file was
+// captured on macOS, CI runs on Linux), so compare numbers to 6 decimals.
+const round = (value) =>
+  typeof value === "string"
+    ? value.replace(/-?\d+\.\d+(?:e[-+]?\d+)?/gi, (n) => String(Number(Number(n).toFixed(6))))
+    : value;
+const roundStyle = (style) => Object.fromEntries(Object.entries(style).map(([k, v]) => [k, round(v)]));
 const snapshot = ({ block, chars }) => ({
-  block: { ...block.style },
-  chars: chars.map((c) => ({ ...c.el.style, text: c.el.textContent })),
+  block: roundStyle(block.style),
+  chars: chars.map((c) => ({ ...roundStyle(c.el.style), text: c.el.textContent })),
+});
+const normalize = ({ block, chars }) => ({
+  block: roundStyle(block),
+  chars: chars.map(({ text, ...style }) => ({ ...roundStyle(style), text })),
 });
 
 test("every shipped mode is covered by the golden file", () => {
@@ -49,7 +60,7 @@ for (const mode of Object.keys(golden).filter((m) => !m.startsWith("__"))) {
     for (const time of times) {
       const t = target();
       sampler.sample(mode, time, t.block, t.chars);
-      assert.deepEqual(snapshot(t), golden[mode][time], `${mode} @ ${time}s`);
+      assert.deepEqual(snapshot(t), normalize(golden[mode][time]), `${mode} @ ${time}s`);
     }
   });
 }
@@ -60,7 +71,7 @@ test("incremental playback matches the element's frame loop", () => {
     const engine = new TextFxEngine();
     engine.reset(t.block, t.chars);
     for (let i = 0; i < 90; i++) engine.update(mode, 1 / 60, t.block, t.chars);
-    assert.deepEqual(snapshot(t), expected, mode);
+    assert.deepEqual(snapshot(t), normalize(expected), mode);
   }
 });
 
